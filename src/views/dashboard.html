@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Salon Dashboard</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+      }
+
+      .sidebar {
+        width: 220px;
+        background: #2c3e50;
+        color: white;
+        height: 100vh;
+        position: fixed;
+        padding: 20px;
+      }
+
+      .sidebar h2 {
+        margin-top: 0;
+      }
+
+      .sidebar ul {
+        list-style: none;
+        padding: 0;
+      }
+
+      .sidebar ul li {
+        margin: 15px 0;
+        cursor: pointer;
+      }
+
+      .sidebar ul li:hover {
+        color: #1abc9c;
+      }
+
+      .main-content {
+        margin-left: 240px;
+        padding: 20px;
+      }
+
+      button {
+        padding: 8px 15px;
+        background: #e74c3c;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #c0392b;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      table,
+      th,
+      td {
+        border: 1px solid #ccc;
+      }
+
+      th,
+      td {
+        padding: 10px;
+        text-align: left;
+      }
+
+      h3 {
+        margin-top: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <h2>Salon Dashboard</h2>
+      <ul>
+        <li id="nav-profile">Profile</li>
+        <li id="nav-services">Services</li>
+        <li id="nav-appointments">Appointments</li>
+        <li id="nav-staff">Staff</li>
+        <li id="nav-availability">Availability</li>
+        <li id="nav-users">Users</li>
+      </ul>
+      <button id="logoutBtn">Logout</button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div id="content-area">
+        <!-- Dynamic content will be rendered here -->
+      </div>
+    </div>
+
+    <script src="/dashboard.js"></script>
+  </body>
+</html>
