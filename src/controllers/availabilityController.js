@@ -1,5 +1,9 @@
-const User = require('../models/userModel');
 const Availability = require('../models/availabilityModel');
+const Appointment = require('../models/appointmentModel');
+const StaffService = require('../models/staffServiceModel');
+const Service = require('../models/serviceModel');
+const User = require('../models/userModel');
+const { Op } = require('sequelize');
 
 // 📌 Staff set availability
 exports.setAvailability = async (req, res) => {
@@ -47,32 +51,85 @@ exports.setAvailability = async (req, res) => {
     }
 };
 
-// 📌 View availability for a staff member
-exports.getAvailability = async (req, res) => {
+
+// 📌 Get real-time available slots for a staff on a given date
+exports.getAvailableSlots = async (req, res) => {
     try {
         const { staffId } = req.params;
+        const { date, serviceId } = req.query; // date = 'YYYY-MM-DD'
 
+        // Validate staff
         const staff = await User.findByPk(staffId);
         if (!staff || staff.role !== 'staff') {
             return res.status(404).json({ message: "Staff not found" });
         }
 
-        const availability = await Availability.findAll({
-            where: { userId: staffId },
-            attributes: ['dayOfWeek', 'startTime', 'endTime', 'slotLength', 'isActive'],
-            order: [['dayOfWeek', 'ASC']]
+        // Get service
+        const service = await Service.findByPk(serviceId);
+        if (!service) return res.status(404).json({ message: "Service not found" });
+
+        // Check if requested date is Sunday (0) or Tuesday (2)
+        const dayOfWeek = new Date(date).getDay();
+        if (dayOfWeek === 0 || dayOfWeek === 2) return res.json({ slots: [] }); // Sunday & Tuesday off
+
+        // Get staffService to check duration override
+        const staffService = await StaffService.findOne({
+            where: { userId: staffId, serviceId, isActive: true }
         });
 
-        return res.status(200).json({
-            staffId,
-            staffName: staff.name,
-            availability
+        const slotDuration = staffService?.durationOverride || service.duration; // in minutes
+        
+
+        // Get staff availability for that day
+        const availability = await Availability.findOne({
+            where: { userId: staffId, dayOfWeek, isActive: true }
         });
+        if (!availability) return res.json({ slots: [] });
+
+        // Generate all possible slots
+        const slots = [];
+        let [h, m] = availability.startTime.split(':').map(Number);
+        const [endH, endM] = availability.endTime.split(':').map(Number);
+
+        while (h < endH || (h === endH && m < endM)) {
+            const slotStart = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+            let endHour = h + Math.floor((m + slotDuration) / 60);
+            let endMin = (m + slotDuration) % 60;
+            const slotEnd = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}:00`;
+
+            // Only push if slotEnd is before availability endTime
+            if (endHour < endH || (endHour === endH && endMin <= endM)) {
+                slots.push({ startTime: slotStart, endTime: slotEnd });
+            }
+
+            // move to next slot
+            m += slotDuration;
+            h += Math.floor(m / 60);
+            m = m % 60;
+        }
+
+        // Fetch booked appointments for that staff on that date
+        const bookedAppointments = await Appointment.findAll({
+            where: {
+                staffId,
+                date,
+                status: { [Op.not]: 'cancelled' }
+            },
+            attributes: ['startTime', 'endTime']
+        });
+
+        // Filter slots that are already booked
+        const availableSlots = slots.filter(slot => {
+            return !bookedAppointments.some(appointment =>
+                (slot.startTime >= appointment.startTime && slot.startTime < appointment.endTime) ||
+                (slot.endTime > appointment.startTime && slot.endTime <= appointment.endTime) ||
+                (slot.startTime <= appointment.startTime && slot.endTime >= appointment.endTime)
+            );
+        });
+
+        return res.status(200).json({ staffId, date, slots: availableSlots});
     } catch (error) {
-        console.error("❌ Error fetching availability:", error);
-        return res.status(500).json({
-            message: "Internal server error",
-            error: error.message
-        });
+        console.error("❌ Error getting available slots:", error);
+        return res.status(500).json({ message: "Internal server error", error: error.message });
     }
 };
