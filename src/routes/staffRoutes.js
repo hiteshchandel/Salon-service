@@ -1,6 +1,6 @@
 const express = require('express');
 const { authenticateToken } = require('../utils/jwt');
-const { addStaff, assignServiceToStaff, getStaffProfiles } = require('../controllers/staffController');
+const { addStaff, assignServiceToStaff, getStaffProfiles, deleteStaff } = require('../controllers/staffController');
 const router = express.Router();
 
 // Admin: Add staff
@@ -11,5 +11,7 @@ router.post('/:staffId/services/:serviceId', authenticateToken, assignServiceToS
 
 // Get staff profiles
 router.get('/', getStaffProfiles);
+
+router.delete('/:staffId', authenticateToken, deleteStaff);
 
 module.exports = router;

@@ -23,32 +23,46 @@ exports.getProfile = async (req, res) => {
     }
 };
 
-// Update user profile
-exports.updateProfile = async (req, res) => {
+// 📌 Update any user or staff profile
+exports.updateUser = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const { name, email, mobile } = req.body;
+        const { userId } = req.params; // optional: if admin wants to update another user
+        const { name, email, mobile, phone, bio } = req.body;
 
-        const user = await User.findByPk(userId);
-        if (!user) {
+        let targetUser;
+
+        // Admin can update any user by userId, else update self
+        if (req.user.role === 'admin' && userId) {
+            targetUser = await User.findByPk(userId);
+        } else {
+            targetUser = await User.findByPk(req.user.id);
+        }
+
+        if (!targetUser) {
             return res.status(404).json({ message: "User not found" });
         }
 
-        // update only if provided
-        if (name) user.name = name;
-        if (email) user.email = email;
-        if (mobile) user.mobile = mobile;
+        // Regular users (non-admin) cannot update other users
+        if (req.user.role !== 'admin' && targetUser.id !== req.user.id) {
+            return res.status(403).json({ message: "Access denied" });
+        }
 
-        await user.save();
+        // Update fields if provided
+        if (name) targetUser.name = name;
+        if (email) targetUser.email = email;
+        if (mobile) targetUser.mobile = mobile;  // for regular user
+        if (phone) targetUser.phone = phone;    // for staff
+        if (bio) targetUser.bio = bio;          // for staff
 
-        const { password, ...userWithoutPassword } = user.toJSON();
+        await targetUser.save();
 
         return res.status(200).json({
-            message: "Profile updated successfully",
-            user: userWithoutPassword
+            message: "User updated successfully",
+            user: targetUser
         });
+
     } catch (error) {
-        console.error("❌ Error updating profile:", error);
+        console.error("❌ Error updating user:", error);
         return res.status(500).json({
             message: "Internal server error",
             error: error.message

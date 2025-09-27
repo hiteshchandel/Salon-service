@@ -120,3 +120,30 @@ exports.getStaffProfiles = async (req, res) => {
         });
     }
 };
+
+// 📌 Delete a staff member (Admin only)
+exports.deleteStaff = async (req, res) => {
+    try {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ message: "Access denied. Only admin can delete staff." });
+        }
+
+        const { staffId } = req.params;
+
+        const staff = await User.findByPk(staffId);
+        if (!staff || staff.role !== 'staff') {
+            return res.status(404).json({ message: "Staff not found" });
+        }
+
+        await staff.destroy();
+
+        return res.status(200).json({ message: "Staff deleted successfully" });
+    } catch (error) {
+        console.error("❌ Error deleting staff:", error);
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message
+        });
+    }
+};
+

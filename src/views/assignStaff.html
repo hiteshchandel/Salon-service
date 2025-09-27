@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Assign Service to Staff</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        background: #f4f6f9;
+        color: #333;
+      }
+      .navbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #333;
+        padding: 12px 20px;
+      }
+      .navbar a {
+        color: white;
+        margin: 0 12px;
+        text-decoration: none;
+        font-weight: bold;
+        padding: 6px 12px;
+        border-radius: 20px;
+        transition: background 0.3s, color 0.3s;
+      }
+      .navbar a.active {
+        background: white;
+        color: #333;
+      }
+      .navbar button {
+        background: #e74c3c;
+        color: white;
+        border: none;
+        padding: 8px 14px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .navbar button:hover {
+        background: #c0392b;
+      }
+
+      main {
+        padding: 20px;
+      }
+      .service-card {
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 12px;
+        margin: 10px 0;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .service-card input {
+        width: 60px;
+        margin-left: 6px;
+      }
+      .btn {
+        background: #3498db;
+        color: white;
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .btn:hover {
+        background: #2980b9;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="nav-links">
+        <a href="/dashboard">Services</a>
+        <a href="/appointments">My Appointments</a>
+        <a href="/users">Manage Users</a>
+        <a href="/staff">Manage Staff</a>
+        <a href="/profile">Profile</a>
+      </div>
+      <button onclick="logout()">Logout</button>
+    </nav>
+
+    <main>
+      <h1>Assign Services to Staff</h1>
+      <div id="serviceList"></div>
+    </main>
+
+    <script>
+      const token = sessionStorage.getItem("token");
+      if (!token) {
+        alert("Please login first!");
+        window.location.href = "login.html";
+      }
+
+      function logout() {
+        sessionStorage.clear();
+        window.location.href = "/";
+      }
+
+      // Highlight navbar
+      const links = document.querySelectorAll(".navbar a");
+      const currentPath = window.location.pathname;
+      links.forEach((link) => {
+        if (link.getAttribute("href") === currentPath)
+          link.classList.add("active");
+        link.addEventListener("click", () => {
+          links.forEach((l) => l.classList.remove("active"));
+          link.classList.add("active");
+        });
+      });
+
+      // Get staffId from URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const staffId = urlParams.get("staffId");
+      if (!staffId) {
+        alert("No staff selected!");
+        window.location.href = "/staff";
+      }
+
+      // Fetch all services
+      async function fetchServices() {
+        try {
+          const res = await fetch("/api/services/", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const data = await res.json();
+          renderServices(data.services || []);
+        } catch (err) {
+          console.error("❌ Error fetching services:", err);
+        }
+      }
+
+      // Render services with assign button
+      function renderServices(services) {
+        const list = document.getElementById("serviceList");
+        list.innerHTML = "";
+
+        services.forEach((service) => {
+          const card = document.createElement("div");
+          card.className = "service-card";
+          card.innerHTML = `
+          <div>
+            <strong>${service.name}</strong> - ₹${service.price} / ${service.duration} min
+          </div>
+          <div>
+            <input type="number" placeholder="Price" id="price-${service.id}">
+            <input type="number" placeholder="Duration" id="duration-${service.id}">
+            <button class="btn">Assign</button>
+          </div>
+        `;
+          const btn = card.querySelector("button");
+          btn.onclick = () => assignService(service.id);
+          list.appendChild(card);
+        });
+      }
+
+      // Assign service
+      async function assignService(serviceId) {
+        const priceOverride =
+          document.getElementById(`price-${serviceId}`).value || null;
+        const durationOverride =
+          document.getElementById(`duration-${serviceId}`).value || null;
+
+        try {
+          const res = await fetch(
+            `/api/staff/${staffId}/services/${serviceId}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ priceOverride, durationOverride }),
+            }
+          );
+          const data = await res.json();
+          if (res.ok) alert(`Service assigned successfully!`);
+          else alert(data.message || "Failed to assign service");
+        } catch (err) {
+          console.error("❌ Error assigning service:", err);
+        }
+      }
+
+      fetchServices();
+      // ✅ Highlight active navbar link
+      document.addEventListener("DOMContentLoaded", () => {
+        const links = document.querySelectorAll(".navbar a");
+        const currentPath = window.location.pathname;
+
+        links.forEach((link) => {
+          if (link.getAttribute("href") === currentPath) {
+            link.classList.add("active");
+          }
+
+          const links = document.querySelectorAll(".navbar a");
+          const currentPath = window.location.pathname;
+
+          links.forEach((link) => {
+            const href = link.getAttribute("href");
+
+            // Highlight "Manage Staff" for both /staff and /assign-service
+            if (
+              href === "/staff" &&
+              (currentPath === "/staff" || currentPath === "/assign-service")
+            ) {
+              link.classList.add("active");
+            }
+
+            link.addEventListener("click", () => {
+              links.forEach((l) => l.classList.remove("active"));
+              link.classList.add("active");
+            });
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

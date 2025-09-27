@@ -23,7 +23,24 @@ app.get('/signup', (req, res) => {
 app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'dashboard.html'));
 });
-
+app.get('/profile', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'profile.html'));
+});
+app.get('/appointments', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'appointments.html'));
+});
+app.get('/staff', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'staff.html'));
+});
+app.get('/users', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'users.html'));
+});
+app.get('/service', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'service.html'));
+}); 
+app.get('/assign-service', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'assignStaff.html'));
+});
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));

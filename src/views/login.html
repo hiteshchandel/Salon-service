@@ -95,7 +95,7 @@
                 // ✅ Save token
                 sessionStorage.setItem("token", data.token);
                 sessionStorage.setItem("user", JSON.stringify(data.user));
-                // sessionStorage.setItem("role", data.user.role)
+                sessionStorage.setItem("role", data.user.role)
                 
                 e.target.reset();
                 alert("Login successful!");

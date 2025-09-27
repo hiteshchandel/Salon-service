@@ -6,7 +6,7 @@ const router = express.Router();
 // Staff set availability
 router.post('/', authenticateToken, setAvailability);
 
-// View availability (staffId required)
+// View availability slotes (staffId required)
 router.get('/:staffId', getAvailableSlots);
 
 module.exports = router;

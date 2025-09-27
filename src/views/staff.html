@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Salon Dashboard - Staff</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f4f6f9;
+      color: #333;
+    }
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #333;
+      padding: 12px 20px;
+    }
+    .navbar a {
+        color: white;
+        margin: 0 12px;
+        text-decoration: none;
+        font-weight: bold;
+        padding: 6px 12px;
+        border-radius: 20px; /* capsule */
+        transition: background 0.3s, color 0.3s;
+    }
+
+    .navbar a:hover {
+      text-decoration: none;
+      background: rgba(255,255,255,0.2);
+    }
+      /* Active (highlighted) link */
+    .navbar a.active {
+        background: white;
+        color: #333;
+    }
+    .navbar button {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .navbar button:hover { background: #c0392b; }
+
+    main { padding: 20px; }
+
+    .form-container {
+      background: #fff;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      display: none;
+    }
+    .form-container input, .form-container textarea {
+      width: 100%;
+      margin: 6px 0;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .btn {
+      background: #3498db;
+      color: white;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      margin: 4px 2px;
+      cursor: pointer;
+    }
+    .btn:hover { background: #2980b9; }
+    .btn-danger { background: #e74c3c; }
+    .btn-danger:hover { background: #c0392b; }
+    .search-bar {
+      margin: 10px 0;
+      padding: 8px;
+      width: 50%;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .staff-list {
+      margin-top: 20px;
+    }
+    .staff-card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 10px 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .staff-card h3 { margin: 0 0 10px; }
+    .actions { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <!-- ✅ Navbar -->
+  <nav class="navbar">
+    <div class="nav-links">
+      <a href="/dashboard">Services</a>
+      <a href="/appointments">My Appointments</a>
+      <a href="/users">Manage Users</a>
+      <a href="/staff">Manage Staff</a>
+      <a href="/profile">Profile</a>
+    </div>
+    <button onclick="logout()">Logout</button>
+  </nav>
+
+  <!-- ✅ Dashboard Content -->
+  <main>
+    <h1>Manage Staff</h1>
+
+    <!-- Add Staff Form (Admin only) -->
+    <div id="admin-actions" style="margin:10px 0; display:none;">
+      <button class="btn" onclick="toggleForm()">+ Add Staff</button>
+      <div class="form-container" id="staffFormContainer">
+        <form id="staffForm" onsubmit="saveStaff(event)">
+          <input type="hidden" id="staffId">
+          <input type="text" id="name" placeholder="Full Name" required>
+          <input type="email" id="email" placeholder="Email" required>
+          <input type="password" id="password" placeholder="Password">
+          <input type="text" id="phone" placeholder="Phone">
+          <textarea id="bio" placeholder="Bio"></textarea>
+          <button type="submit" class="btn">Save Staff</button>
+          <button type="button" class="btn btn-danger" onclick="cancelForm()">Cancel</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Search Bar -->
+    <input type="text" id="searchBar" class="search-bar" placeholder="Search staff by name..." onkeyup="filterStaff()">
+
+    <!-- Staff List -->
+    <div class="staff-list" id="staffList"></div>
+  </main>
+
+  <script>
+    const token = sessionStorage.getItem("token");
+    const userRole = sessionStorage.getItem("role");
+
+    if (!token) {
+      alert("Please login first!");
+      window.location.href = "login.html";
+    }
+
+    function logout() {
+      sessionStorage.clear();
+      window.location.href = "/";
+    }
+
+    // ✅ Toggle add form
+    function toggleForm() {
+      const form = document.getElementById("staffFormContainer");
+      form.style.display = form.style.display === "block" ? "none" : "block";
+      document.getElementById("staffForm").reset();
+      document.getElementById("staffId").value = "";
+    }
+    function cancelForm() {
+      document.getElementById("staffFormContainer").style.display = "none";
+    }
+
+    // ✅ Save staff (add or update)
+    async function saveStaff(event) {
+      event.preventDefault();
+      const id = document.getElementById("staffId").value;
+      const payload = {
+        name: document.getElementById("name").value,
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value,
+        phone: document.getElementById("phone").value,
+        bio: document.getElementById("bio").value,
+      };
+
+      const url = id ? `/api/users/${id}` : "/api/staff/";
+      const method = id ? "PUT" : "POST";
+
+      try {
+        await fetch(url, {
+          method,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+        cancelForm();
+        fetchStaff();
+      } catch (err) {
+        console.error("❌ Error saving staff:", err);
+      }
+    }
+
+    // ✅ Fetch all staff
+    async function fetchStaff() {
+      try {
+        const res = await fetch("/api/staff/", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        renderStaff(data.staff || []);
+      } catch (err) {
+        console.error("❌ Error fetching staff:", err);
+      }
+    }
+
+    // ✅ Render staff list
+    function renderStaff(staffArr) {
+      const list = document.getElementById("staffList");
+      list.innerHTML = "";
+
+      staffArr.forEach(staff => {
+        const card = document.createElement("div");
+        card.className = "staff-card";
+
+        card.innerHTML = `
+          <h3>${staff.name}</h3>
+          <p><strong>Email:</strong> ${staff.email}</p>
+          <p><strong>Phone:</strong> ${staff.phone || "N/A"}</p>
+          <p><strong>Bio:</strong> ${staff.bio || "N/A"}</p>
+          <div class="actions"></div>
+        `;
+
+        const actions = card.querySelector(".actions");
+
+        if (userRole === "admin") {
+          const editBtn = document.createElement("button");
+          editBtn.className = "btn";
+          editBtn.innerText = "Edit";
+          editBtn.onclick = () => loadStaffForEdit(staff);
+          actions.appendChild(editBtn);
+
+          const delBtn = document.createElement("button");
+          delBtn.className = "btn btn-danger";
+          delBtn.innerText = "Delete";
+          delBtn.onclick = () => deleteStaff(staff.id);
+          actions.appendChild(delBtn);
+
+          const assignBtn = document.createElement("button");
+          assignBtn.className = "btn";
+          assignBtn.innerText = "Assign Service";
+          assignBtn.onclick = () => assignService(staff.id);
+          actions.appendChild(assignBtn);
+        }
+
+        list.appendChild(card);
+      });
+    }
+
+    // ✅ Load staff for editing
+    function loadStaffForEdit(staff) {
+      document.getElementById("staffId").value = staff.id;
+      document.getElementById("name").value = staff.name;
+      document.getElementById("email").value = staff.email;
+      document.getElementById("phone").value = staff.phone || "";
+      document.getElementById("bio").value = staff.bio || "";
+      document.getElementById("password").value = "";
+      document.getElementById("staffFormContainer").style.display = "block";
+    }
+
+    // ✅ Delete staff
+    async function deleteStaff(id) {
+      if (!confirm("Delete this staff?")) return;
+      try {
+        await fetch(`/api/staff/${id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        fetchStaff();
+      } catch (err) {
+        console.error("❌ Error deleting staff:", err);
+      }
+    }
+
+    // ✅ Assign service
+    function assignService(staffId) {
+      window.location.href = `/assign-service?staffId=${staffId}`;
+    }
+
+    // ✅ Search filter
+    function filterStaff() {
+      const query = document.getElementById("searchBar").value.toLowerCase();
+      const cards = document.querySelectorAll(".staff-card");
+      cards.forEach(card => {
+        const name = card.querySelector("h3").innerText.toLowerCase();
+        card.style.display = name.includes(query) ? "block" : "none";
+      });
+    }
+
+    if (userRole === "admin") {
+      document.getElementById("admin-actions").style.display = "block";
+    }
+
+    fetchStaff();
+    // ✅ Highlight active navbar link
+    document.addEventListener("DOMContentLoaded", () => {
+        const links = document.querySelectorAll(".navbar a");
+        const currentPath = window.location.pathname;
+
+        links.forEach(link => {
+        if (link.getAttribute("href") === currentPath) {
+            link.classList.add("active");
+        }
+
+        link.addEventListener("click", () => {
+            links.forEach(l => l.classList.remove("active"));
+            link.classList.add("active");
+        });
+        });
+    });    
+  </script>
+</body>
+</html>
