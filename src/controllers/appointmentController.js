@@ -16,12 +16,13 @@ const razorpay = new Razorpay({
  */
 exports.createOrder = async (req, res) => {
     try {
-        const { serviceId, staffId, date, startTime, endTime } = req.body;
+        const { userId, staffId, serviceId, date, startTime, endTime } = req.body;
 
-        // Validate service & staff
+        // Validate service
         const service = await Service.findByPk(serviceId);
         if (!service) return res.status(404).json({ message: "Service not found" });
 
+        // Validate staff
         const staff = await User.findOne({ where: { id: staffId, role: "staff" } });
         if (!staff) return res.status(404).json({ message: "Staff not found" });
 
@@ -32,16 +33,17 @@ exports.createOrder = async (req, res) => {
             receipt: `receipt_${Date.now()}`
         });
 
-        // Create draft appointment
+        // Create appointment (and capture variable)
         const appointment = await Appointment.create({
-            userId: req.user.id,
+            userId: req.user.id,  // take logged-in user
             staffId,
             serviceId,
             date,
             startTime,
             endTime,
             status: "pending",
-            paymentStatus: "pending"
+            paymentStatus: "pending",
+            source: "web"
         });
 
         // Create payment record
@@ -63,6 +65,7 @@ exports.createOrder = async (req, res) => {
         return res.status(500).json({ message: "Internal server error", error: err.message });
     }
 };
+
 
 /**
  * 📌 Verify Razorpay payment + update both Payment & Appointment

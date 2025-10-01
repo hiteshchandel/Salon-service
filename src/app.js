@@ -41,6 +41,9 @@ app.get('/service', (req, res) => {
 app.get('/assign-service', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'assignStaff.html'));
 });
+app.get('/availability', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'availability.html'));
+});
 // Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));

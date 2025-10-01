@@ -147,3 +147,50 @@ exports.deleteStaff = async (req, res) => {
     }
 };
 
+
+// 📌 Get staff assigned to a specific service (Public)
+exports.getStaffByService = async (req, res) => {
+    try {
+        const { serviceId } = req.query;
+        if (!serviceId) {
+            return res.status(400).json({ message: "serviceId is required" });
+        }
+
+        const staffServices = await StaffService.findAll({
+            where: { serviceId, isActive: true },
+            include: [
+                {
+                    model: User,
+                    attributes: ["id", "name", "email", "phone", "bio", "avgRating"],
+                    where: { role: "staff" }
+                },
+                {
+                    model: Service,
+                    attributes: ["id", "name", "duration", "price"]
+                }
+            ]
+        });
+
+        const staffList = staffServices.map(ss => ({
+            id: ss.User.id,
+            name: ss.User.name,
+            email: ss.User.email,
+            phone: ss.User.phone,
+            bio: ss.User.bio,
+            avgRating: ss.User.avgRating,
+            service: {
+                id: ss.Service.id,
+                name: ss.Service.name,
+                price: ss.priceOverride ?? ss.Service.price,
+                duration: ss.durationOverride ?? ss.Service.duration
+            }
+        }));
+
+        return res.status(200).json(staffList);
+    } catch (error) {
+        console.error("❌ Error fetching staff by service:", error);
+        return res.status(500).json({ message: "Internal server error", error: error.message });
+    }
+};
+
+

@@ -23,7 +23,6 @@ Appointment.belongsTo(User, { foreignKey: 'staffId', as: 'Staff' });
 Service.hasMany(Appointment, { foreignKey: 'serviceId', onDelete: 'RESTRICT' });
 Appointment.belongsTo(Service, { foreignKey: 'serviceId' });
 
-
 // Appointment <-> Payment (1:1)
 Appointment.hasOne(Payment, { foreignKey: 'appointmentId', onDelete: 'CASCADE' });
 Payment.belongsTo(Appointment, { foreignKey: 'appointmentId' });
@@ -31,6 +30,13 @@ Payment.belongsTo(Appointment, { foreignKey: 'appointmentId' });
 // Staff Services (M:N) - User (staff) <-> Service through StaffService
 User.belongsToMany(Service, { through: StaffService, foreignKey: 'userId', otherKey: 'serviceId' });
 Service.belongsToMany(User, { through: StaffService, foreignKey: 'serviceId', otherKey: 'userId' });
+
+// ✅ Direct associations for StaffService (fixes eager loading error)
+StaffService.belongsTo(User, { foreignKey: 'userId' });
+StaffService.belongsTo(Service, { foreignKey: 'serviceId' });
+
+User.hasMany(StaffService, { foreignKey: 'userId' });
+Service.hasMany(StaffService, { foreignKey: 'serviceId' });
 
 // Staff Availability (User -> Availability 1:M)
 User.hasMany(Availability, { foreignKey: 'userId', onDelete: 'CASCADE' });
@@ -46,7 +52,7 @@ Review.belongsTo(User, { foreignKey: 'staffId', as: 'Staff' });
 Service.hasMany(Review, { foreignKey: 'serviceId', onDelete: 'SET NULL' });
 Review.belongsTo(Service, { foreignKey: 'serviceId' });
 
-// // Notifications
+// // Notifications (optional if you want notifications later)
 // User.hasMany(Notification, { foreignKey: 'userId', onDelete: 'CASCADE' });
 // Notification.belongsTo(User, { foreignKey: 'userId' });
 
