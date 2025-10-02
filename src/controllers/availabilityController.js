@@ -12,7 +12,7 @@ exports.setAvailability = async (req, res) => {
             return res.status(403).json({ message: "Only staff can set availability" });
         }
 
-        const { dayOfWeek, startTime, endTime, slotLength = 30, isActive = true } = req.body;
+        const { dayOfWeek, startTime, endTime, isActive = true } = req.body;
 
         if (dayOfWeek === undefined || !startTime || !endTime) {
             return res.status(400).json({ message: "dayOfWeek, startTime, and endTime are required" });
@@ -23,13 +23,12 @@ exports.setAvailability = async (req, res) => {
 
         const [availability, created] = await Availability.findOrCreate({
             where: { userId: req.user.id, dayOfWeek },
-            defaults: { startTime, endTime, slotLength, isActive }
+            defaults: { startTime, endTime, isActive }
         });
 
         if (!created) {
             availability.startTime = startTime;
             availability.endTime = endTime;
-            availability.slotLength = slotLength;
             availability.isActive = isActive;
             await availability.save();
         }
@@ -52,7 +51,7 @@ exports.updateAvailability = async (req, res) => {
         }
 
         const { availabilityId } = req.params;
-        const { startTime, endTime, slotLength, isActive } = req.body;
+        const { startTime, endTime, isActive } = req.body;
 
         const availability = await Availability.findOne({
             where: { id: availabilityId, userId: req.user.id }
@@ -64,7 +63,6 @@ exports.updateAvailability = async (req, res) => {
 
         if (startTime) availability.startTime = startTime;
         if (endTime) availability.endTime = endTime;
-        if (slotLength) availability.slotLength = slotLength;
         if (isActive !== undefined) availability.isActive = isActive;
 
         await availability.save();
@@ -113,9 +111,7 @@ exports.getAllAvailability = async (req, res) => {
 
         const availability = await Availability.findAll({
             where: whereCondition,
-            include: [
-                { model: User, attributes: ['id', 'name', 'email'] }
-            ]
+            include: [{ model: User, attributes: ['id', 'name', 'email'] }]
         });
 
         return res.status(200).json({ availability });
@@ -125,153 +121,26 @@ exports.getAllAvailability = async (req, res) => {
     }
 };
 
-// 📌 Get real-time available slots for a staff on a given date
-// exports.getAvailableSlots = async (req, res) => {
-//     try {
-//         const { staffId } = req.params;
-//         const { date, serviceId } = req.query;
+// 📌 Get staff availability (only active days)
+exports.getStaffAvailability = async (req, res) => {
+    try {
+        const { staffId } = req.query;
 
-//         const staff = await User.findByPk(staffId);
-//         if (!staff || staff.role !== 'staff') {
-//             return res.status(404).json({ message: "Staff not found" });
-//         }
+        if (!staffId) return res.status(400).json({ message: "staffId is required" });
 
-//         const service = await Service.findByPk(serviceId);
-//         if (!service) return res.status(404).json({ message: "Service not found" });
+        const availability = await Availability.findAll({
+            where: { userId: staffId, isActive: true }, // ✅ only active days
+            attributes: ["dayOfWeek", "startTime", "endTime"]
+        });
 
-//         const dayOfWeek = new Date(date).getDay();
-//         if (dayOfWeek === 0 ) return res.json({ slots: [] });
+        return res.status(200).json({ availability });
+    } catch (error) {
+        console.error("❌ Error fetching staff availability:", error);
+        return res.status(500).json({ message: "Internal server error", error: error.message });
+    }
+};
 
-//         const staffService = await StaffService.findOne({
-//             where: { userId: staffId, serviceId, isActive: true }
-//         });
-
-//         const slotDuration = staffService?.durationOverride || service.duration;
-
-//         const availability = await Availability.findOne({
-//             where: { userId: staffId, dayOfWeek, isActive: true }
-//         });
-//         if (!availability) return res.json({ slots: [] });
-
-//         const slots = [];
-//         let [h, m] = availability.startTime.split(':').map(Number);
-//         const [endH, endM] = availability.endTime.split(':').map(Number);
-
-//         while (h < endH || (h === endH && m < endM)) {
-//             const slotStart = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
-//             let endHour = h + Math.floor((m + slotDuration) / 60);
-//             let endMin = (m + slotDuration) % 60;
-//             const slotEnd = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}:00`;
-
-//             if (endHour < endH || (endHour === endH && endMin <= endM)) {
-//                 slots.push({ startTime: slotStart, endTime: slotEnd });
-//             }
-
-//             m += slotDuration;
-//             h += Math.floor(m / 60);
-//             m = m % 60;
-//         }
-
-//         const bookedAppointments = await Appointment.findAll({
-//             where: {
-//                 staffId,
-//                 date,
-//                 status: { [Op.not]: 'cancelled' }
-//             },
-//             attributes: ['startTime', 'endTime']
-//         });
-
-//         const availableSlots = slots.filter(slot => {
-//             return !bookedAppointments.some(appointment =>
-//                 (slot.startTime >= appointment.startTime && slot.startTime < appointment.endTime) ||
-//                 (slot.endTime > appointment.startTime && slot.endTime <= appointment.endTime) ||
-//                 (slot.startTime <= appointment.startTime && slot.endTime >= appointment.endTime)
-//             );
-//         });
-
-//         return res.status(200).json({ staffId, date, slots: availableSlots });
-//     } catch (error) {
-//         console.error("❌ Error getting available slots:", error);
-//         return res.status(500).json({ message: "Internal server error", error: error.message });
-//     }
-// };
-
-
-// // // 📌 Get available slots for staff by day + service
-// exports.getAvailableSlots = async (req, res) => {
-//     try {
-//         const { staffId } = req.params;
-//         const { day, date, serviceId } = req.query;
-
-//         if (!day || !date || !serviceId) {
-//             return res.status(400).json({ message: "day, date and serviceId are required" });
-//         }
-
-//         const staff = await User.findByPk(staffId);
-//         if (!staff || staff.role !== "staff") {
-//             return res.status(404).json({ message: "Staff not found" });
-//         }
-
-//         const service = await Service.findByPk(serviceId);
-//         if (!service) return res.status(404).json({ message: "Service not found" });
-
-//         // check staff-service assignment
-//         const staffService = await StaffService.findOne({
-//             where: { userId: staffId, serviceId, isActive: true }
-//         });
-//         if (!staffService) return res.status(404).json({ message: "Staff is not assigned to this service" });
-
-//         const slotDuration = staffService.durationOverride || service.duration;
-
-//         const availability = await Availability.findOne({
-//             where: { userId: staffId, dayOfWeek: day, isActive: true }
-//         });
-//         if (!availability) return res.json({ slots: [] });
-
-//         // generate slots
-//         const slots = [];
-//         let [h, m] = availability.startTime.split(":").map(Number);
-//         const [endH, endM] = availability.endTime.split(":").map(Number);
-
-//         while (h < endH || (h === endH && m < endM)) {
-//             const slotStart = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
-//             let endHour = h + Math.floor((m + slotDuration) / 60);
-//             let endMin = (m + slotDuration) % 60;
-//             const slotEnd = `${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}:00`;
-
-//             if (endHour < endH || (endHour === endH && endMin <= endM)) {
-//                 slots.push(slotStart);
-//             }
-
-//             m += slotDuration;
-//             h += Math.floor(m / 60);
-//             m = m % 60;
-//         }
-
-//         // filter booked slots for this date
-//         const bookedAppointments = await Appointment.findAll({
-//             where: {
-//                 staffId,
-//                 date, // ✅ compare with actual date
-//                 status: { [Op.not]: "cancelled" }
-//             },
-//             attributes: ["startTime", "endTime"]
-//         });
-
-//         const availableSlots = slots.filter(slot =>
-//             !bookedAppointments.some(appt =>
-//                 slot >= appt.startTime && slot < appt.endTime
-//             )
-//         );
-
-//         return res.status(200).json({ staffId, date, slots: availableSlots });
-//     } catch (error) {
-//         console.error("❌ Error getting available slots:", error);
-//         return res.status(500).json({ message: "Internal server error", error: error.message });
-//     }
-// };
-
-// 📌 Optimized: Get available slots for staff by date + service
+// 📌 Get available slots for staff + service + date
 exports.getAvailableSlots = async (req, res) => {
     try {
         const { staffId } = req.params;
@@ -282,47 +151,39 @@ exports.getAvailableSlots = async (req, res) => {
         }
 
         const staff = await User.findByPk(staffId);
-        if (!staff || staff.role !== "staff")
-            return res.status(404).json({ message: "Staff not found" });
+        if (!staff || staff.role !== "staff") return res.status(404).json({ message: "Staff not found" });
 
         const service = await Service.findByPk(serviceId);
         if (!service) return res.status(404).json({ message: "Service not found" });
 
         const dayOfWeek = new Date(date).getDay();
-        if (dayOfWeek === 0) return res.json({ slots: [] }); // skip Sundays
 
+        // Check if staff is assigned to service
         const staffService = await StaffService.findOne({
             where: { userId: staffId, serviceId, isActive: true }
         });
-        if (!staffService)
-            return res.status(404).json({ message: "Staff is not assigned to this service" });
+        if (!staffService) return res.status(404).json({ message: "Staff is not assigned to this service" });
 
-        const slotDuration = staffService.durationOverride || service.duration;
-
+        // Check if staff is available on this day
         const availability = await Availability.findOne({
             where: { userId: staffId, dayOfWeek, isActive: true }
         });
-        if (!availability) return res.json({ slots: [] });
+        if (!availability) return res.json({ slots: [] }); // ✅ no availability, return empty
 
         // Generate slots
+        const slotDuration = service.duration;
         const slots = [];
         let [h, m] = availability.startTime.split(":").map(Number);
         const [endH, endM] = availability.endTime.split(":").map(Number);
 
         while (h < endH || (h === endH && m < endM)) {
             const slotStart = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`;
-            let endHour = h + Math.floor((m + slotDuration) / 60);
-            let endMin = (m + slotDuration) % 60;
+            const endHour = h + Math.floor((m + slotDuration) / 60);
+            const endMin = (m + slotDuration) % 60;
             const slotEnd = `${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}:00`;
 
             if (endHour < endH || (endHour === endH && endMin <= endM)) {
-                slots.push({
-                    startTime: slotStart,
-                    endTime: slotEnd,
-                    display: `${slotStart.slice(0, 5)} - ${slotEnd.slice(0, 5)}`, // ✅ formatted for frontend
-                    booked: false,
-                    bookedBy: null
-                });
+                slots.push({ startTime: slotStart, endTime: slotEnd, display: `${slotStart.slice(0, 5)} - ${slotEnd.slice(0, 5)}`, booked: false });
             }
 
             m += slotDuration;
@@ -330,32 +191,19 @@ exports.getAvailableSlots = async (req, res) => {
             m = m % 60;
         }
 
-        // Fetch booked appointments for this date
+        // Remove already booked slots
         const bookedAppointments = await Appointment.findAll({
-            where: {
-                staffId,
-                date,
-                status: { [Op.not]: "cancelled" }
-            },
-            include: [{ model: User, as: "Customer", attributes: ["id", "name"] }],
-            attributes: ["startTime", "endTime", "UserId"]
+            where: { staffId, date, status: { [Op.not]: "cancelled" } },
+            attributes: ["startTime", "endTime"]
         });
 
-        // Mark booked slots
-        slots.forEach(slot => {
-            const booking = bookedAppointments.find(appt =>
+        const availableSlots = slots.filter(slot => {
+            return !bookedAppointments.some(appt =>
                 (slot.startTime >= appt.startTime && slot.startTime < appt.endTime) ||
                 (slot.endTime > appt.startTime && slot.endTime <= appt.endTime) ||
                 (slot.startTime <= appt.startTime && slot.endTime >= appt.endTime)
             );
-            if (booking) {
-                slot.booked = true;
-                slot.bookedBy = booking.Customer ? booking.Customer.name : "Unknown";
-            }
         });
-
-        // ✅ Only return free slots
-        const availableSlots = slots.filter(slot => !slot.booked);
 
         return res.status(200).json({ staffId, date, slots: availableSlots });
 
@@ -364,6 +212,5 @@ exports.getAvailableSlots = async (req, res) => {
         return res.status(500).json({ message: "Internal server error", error: err.message });
     }
 };
-
 
 

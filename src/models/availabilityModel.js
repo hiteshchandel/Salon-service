@@ -8,7 +8,7 @@ const Availability = sequelize.define('Availability', {
     dayOfWeek: { type: DataTypes.INTEGER, allowNull: false }, // 0 = Sunday ... 6 = Saturday
     startTime: { type: DataTypes.TIME, allowNull: false },    // '09:00:00'
     endTime: { type: DataTypes.TIME, allowNull: false },      // '17:00:00'
-    slotLength: { type: DataTypes.INTEGER, defaultValue: 30 },// minutes
+    // slotLength: { type: DataTypes.INTEGER, defaultValue: 30 },// minutes
     isActive: { type: DataTypes.BOOLEAN, defaultValue: true }
 }, {
     tableName: 'availabilities',

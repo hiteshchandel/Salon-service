@@ -56,7 +56,6 @@ exports.assignServiceToStaff = async (req, res) => {
         }
 
         const { staffId, serviceId } = req.params;
-        const { priceOverride, durationOverride } = req.body;
 
         // Check if staff exists
         const staff = await User.findByPk(staffId);
@@ -70,17 +69,15 @@ exports.assignServiceToStaff = async (req, res) => {
             return res.status(404).json({ message: "Service not found" });
         }
 
-        // Create or update assignment
-        const assignment = await StaffService.findOrCreate({
+        // Create or update assignment (only isActive now)
+        const [assignment, created] = await StaffService.findOrCreate({
             where: { userId: staffId, serviceId },
-            defaults: { priceOverride, durationOverride, isActive: true }
+            defaults: { isActive: true }
         });
 
-        // If already exists, update overrides
-        if (!assignment[1]) {
-            assignment[0].priceOverride = priceOverride ?? assignment[0].priceOverride;
-            assignment[0].durationOverride = durationOverride ?? assignment[0].durationOverride;
-            await assignment[0].save();
+        if (!created) {
+            assignment.isActive = true; // re-activate if it was inactive
+            await assignment.save();
         }
 
         return res.status(200).json({
@@ -97,29 +94,27 @@ exports.assignServiceToStaff = async (req, res) => {
     }
 };
 
-// 📌 Get all staff profiles (Public)
+// Get all staff with their assigned services
 exports.getStaffProfiles = async (req, res) => {
     try {
-        const staffProfiles = await User.findAll({
+        const staff = await User.findAll({
             where: { role: 'staff' },
-            attributes: ['id', 'name', 'email', 'phone', 'bio', 'avgRating'],
             include: [
                 {
                     model: Service,
-                    through: { attributes: ['priceOverride', 'durationOverride', 'isActive'] }
+                    as: 'Services', // ✅ must match the alias defined in associations
+                    through: { attributes: [] } // hide join table
                 }
             ]
         });
 
-        return res.status(200).json({ staff: staffProfiles });
-    } catch (error) {
-        console.error("❌ Error fetching staff profiles:", error);
-        return res.status(500).json({
-            message: "Internal server error",
-            error: error.message
-        });
+        return res.status(200).json({ staff });
+    } catch (err) {
+        console.error('❌ Error fetching staff profiles:', err);
+        return res.status(500).json({ message: 'Internal server error', error: err.message });
     }
 };
+
 
 // 📌 Delete a staff member (Admin only)
 exports.deleteStaff = async (req, res) => {
@@ -146,7 +141,6 @@ exports.deleteStaff = async (req, res) => {
         });
     }
 };
-
 
 // 📌 Get staff assigned to a specific service (Public)
 exports.getStaffByService = async (req, res) => {
@@ -181,8 +175,8 @@ exports.getStaffByService = async (req, res) => {
             service: {
                 id: ss.Service.id,
                 name: ss.Service.name,
-                price: ss.priceOverride ?? ss.Service.price,
-                duration: ss.durationOverride ?? ss.Service.duration
+                price: ss.Service.price,   // always from service
+                duration: ss.Service.duration // always from service
             }
         }));
 
@@ -194,3 +188,32 @@ exports.getStaffByService = async (req, res) => {
 };
 
 
+// Get all services assigned to a staff
+exports.getStaffServices = async (req, res) => {
+    try {
+        const { staffId } = req.params;
+
+        // Check if staff exists
+        const staff = await User.findByPk(staffId);
+        if (!staff || staff.role !== "staff") {
+            return res.status(404).json({ message: "Staff not found" });
+        }
+
+        // Fetch assigned services (many-to-many through StaffService)
+        const assignedServices = await Service.findAll({
+            include: [
+                {
+                    model: User,
+                    as: "Staffs",
+                    where: { id: staffId },
+                    attributes: []
+                }
+            ]
+        });
+
+        return res.status(200).json({ services: assignedServices });
+    } catch (err) {
+        console.error("❌ Error fetching staff services:", err);
+        return res.status(500).json({ message: "Internal server error", error: err.message });
+    }
+};

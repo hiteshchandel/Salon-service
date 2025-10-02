@@ -4,22 +4,118 @@
   <meta charset="UTF-8">
   <title>Book Service</title>
   <style>
-    body { font-family: Arial, sans-serif; margin:0; background:#f4f6f9; color:#333; }
-    .navbar { display:flex; justify-content:space-between; align-items:center; background:#333; padding:12px 20px; }
-    .navbar a { color:white; margin:0 12px; text-decoration:none; font-weight:bold; padding:6px 12px; border-radius:20px; transition:background 0.3s,color 0.3s; }
+    body {
+      font-family: Arial, sans-serif;
+      margin:0;
+      background:#f4f6f9;
+      color:#333;
+    }
+    .navbar {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      background:#333;
+      padding:12px 20px;
+    }
+    .navbar a {
+      color:white;
+      margin:0 12px;
+      text-decoration:none;
+      font-weight:bold;
+      padding:6px 12px;
+      border-radius:20px;
+      transition:background 0.3s,color 0.3s;
+    }
     .navbar a.active { background:white; color:#333; }
-    .navbar button { background:#e74c3c; color:white; border:none; padding:8px 14px; border-radius:4px; cursor:pointer; }
-    .container { max-width:800px; margin:20px auto; background:white; padding:20px; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
-    h1,h2 { text-align:center; margin-bottom:15px; }
-    .staff-list, .days, .slots { display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin:15px 0; }
-    .staff-btn,.day-btn,.slot-btn { padding:8px 14px; border:none; border-radius:6px; cursor:pointer; background:#3498db; color:white; }
-    .staff-btn.active, .day-btn.active, .slot-btn.active { background:#27ae60; }
-    #bookBtn { display:block; margin:20px auto; padding:10px 20px; font-size:16px; border:none; border-radius:6px; background:#27ae60; color:white; cursor:pointer; }
+    .navbar button {
+      background:#e74c3c;
+      color:white;
+      border:none;
+      padding:8px 14px;
+      border-radius:4px;
+      cursor:pointer;
+    }
+    .container {
+      max-width:900px;
+      margin:20px auto;
+      padding:0 15px 20px;
+    }
+    .service-card {
+      background:white;
+      padding:20px;
+      border-radius:10px;
+      box-shadow:0 4px 10px rgba(0,0,0,0.1);
+      margin-bottom:25px;
+    }
+    .service-card h1 {
+      margin-top:0;
+      font-size:26px;
+    }
+    .service-details p {
+      margin:8px 0;
+      font-size:16px;
+    }
+    h2 {
+      margin-bottom:10px;
+      text-align:center;
+    }
+    .staff-list {
+      display: flex;
+      flex-direction: column;
+      max-height: 120px;
+      overflow-y: auto;
+      scroll-snap-type: y mandatory;
+      gap: 12px;
+      padding: 10px;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .staff-card {
+      flex: 0 0 100%;
+      scroll-snap-align: start;
+      background: #3498db;
+      color: white;
+      border-radius: 10px;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .staff-card:hover { background: #2980b9; }
+    .staff-card.active { background: #27ae60; }
+    .staff-card p { margin: 4px 0; font-size: 14px; }
+    .days, .slots {
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      justify-content:center;
+      margin-bottom:20px;
+    }
+    .day-btn, .slot-btn {
+      padding:10px 16px;
+      border:none;
+      border-radius:8px;
+      cursor:pointer;
+      background:#3498db;
+      color:white;
+      transition:0.3s;
+    }
+    .day-btn.active, .slot-btn.active { background:#27ae60; }
+    #bookBtn {
+      display:block;
+      margin:0 auto;
+      padding:12px 24px;
+      font-size:16px;
+      border:none;
+      border-radius:8px;
+      background:#27ae60;
+      color:white;
+      cursor:pointer;
+    }
     #bookBtn:disabled { background:#aaa; cursor:not-allowed; }
   </style>
 </head>
 <body>
-  <!-- ✅ Navbar -->
   <nav class="navbar">
     <div class="nav-links">
       <a href="/dashboard">Services</a>
@@ -33,10 +129,14 @@
   </nav>
 
   <div class="container">
-    <h1 id="serviceName">Loading...</h1>
-    <p id="serviceDesc"></p>
-    <p><strong>Duration:</strong> <span id="serviceDuration"></span> min</p>
-    <p><strong>Price:</strong> ₹<span id="servicePrice"></span></p>
+    <div class="service-card">
+      <h1 id="serviceName">Loading...</h1>
+      <div class="service-details">
+        <p id="serviceDesc"></p>
+        <p><strong>Duration:</strong> <span id="serviceDuration"></span> min</p>
+        <p><strong>Price:</strong> ₹<span id="servicePrice"></span></p>
+      </div>
+    </div>
 
     <h2>Select Staff</h2>
     <div class="staff-list" id="staffList"></div>
@@ -50,188 +150,142 @@
     <button id="bookBtn" disabled>Book Appointment</button>
   </div>
 
-  <!-- Razorpay SDK -->
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <script>
     const token = sessionStorage.getItem("token");
     const serviceId = sessionStorage.getItem("selectedServiceId"); 
-    if (!token || !serviceId) {
-      alert("Invalid session, please login again.");
-      window.location.href = "login.html";
-    }
+    if (!token || !serviceId) { alert("Invalid session"); window.location.href="/"; }
 
-    let selectedStaff = null;
-    let selectedDay = null;
-    let selectedSlot = null;
-    let serviceData = null;
+    let selectedStaff = null, selectedDay = null, selectedSlot = null, selectedDate = null, serviceData = null;
 
-    async function init() {
-      await fetchService();
-      await fetchStaff();
-    }
+    async function init(){ await fetchService(); await fetchStaff(); }
 
-    // ✅ Fetch service detail
-    async function fetchService() {
-      const res = await fetch(`/api/services/`, { headers: { Authorization: `Bearer ${token}` }});
+    async function fetchService(){
+      const res = await fetch(`/api/services/`, { headers:{ Authorization:`Bearer ${token}` }});
       const data = await res.json();
       serviceData = data.services.find(s => s.id == serviceId);
-      if (!serviceData) { alert("Service not found"); return; }
+      if(!serviceData){ alert("Service not found"); return; }
       document.getElementById("serviceName").textContent = serviceData.name;
       document.getElementById("serviceDesc").textContent = serviceData.description || "";
       document.getElementById("serviceDuration").textContent = serviceData.duration;
       document.getElementById("servicePrice").textContent = serviceData.price;
     }
 
-    async function fetchStaff() {
-      try {
-        const res = await fetch(`/api/staff/staffByService?serviceId=${serviceId}`);
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
+    async function fetchStaff(){
+      try{
+        const res = await fetch(`/api/staff/staffByService?serviceId=${serviceId}`, { headers:{ Authorization:`Bearer ${token}` }});
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
         const staff = await res.json();
-        
         const container = document.getElementById("staffList");
         container.innerHTML = "";
         staff.forEach(s => {
-          const btn = document.createElement("button");
-          btn.className = "staff-btn";
-          btn.textContent = s.name;
-          btn.onclick = () => selectStaff(s);
-          container.appendChild(btn);
+          const card = document.createElement("div");
+          card.className = "staff-card";
+          card.innerHTML = `<p><strong>${s.name}</strong></p>
+                            <p>Mobile: ${s.phone || '-'}</p>
+                            <p>${s.bio || ''}</p>
+                            <p>Avg. Rating: ${s.avgRating || 'N/A'}</p>`;
+          card.onclick = (e) => selectStaff(s, e);
+          container.appendChild(card);
         });
-      } catch (err) {
-        console.error("❌ Error fetching staff:", err);
-      }
+      }catch(err){ console.error("Error fetching staff:", err); }
     }
 
-
-    function selectStaff(s) {
+    function selectStaff(s, e){
       selectedStaff = s;
-      document.querySelectorAll(".staff-btn").forEach(b => b.classList.remove("active"));
-      event.target.classList.add("active");
+      document.querySelectorAll(".staff-card").forEach(b => b.classList.remove("active"));
+      e.currentTarget.classList.add("active");
       fetchDays(s.id);
     }
 
-    // ✅ Fetch available days for staff
-    async function fetchDays(staffId) {
-      const res = await fetch(`/api/availability?staffId=${staffId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      const container = document.getElementById("days");
-      container.innerHTML = "";
-      (data.availability || []).forEach(av => {
-        const btn = document.createElement("button");
-        btn.className = "day-btn";
-        btn.textContent = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][av.dayOfWeek];
-        btn.onclick = () => selectDay(av.dayOfWeek);
-        container.appendChild(btn);
-      });
+    async function fetchDays(staffId){
+      try{
+        const res = await fetch(`/api/availability/staff/active?staffId=${staffId}`, { headers:{ Authorization:`Bearer ${token}` }});
+        const data = await res.json();
+        const container = document.getElementById("days");
+        container.innerHTML = "";
+        (data.availability || []).forEach(av => {
+          const btn = document.createElement("button");
+          btn.className = "day-btn";
+          btn.textContent = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][av.dayOfWeek];
+          btn.onclick = (e) => selectDay(av.dayOfWeek, e);
+          container.appendChild(btn);
+        });
+      }catch(err){ console.error("Error fetching days:", err); }
     }
 
-    function selectDay(day) {
+    function selectDay(day, e){
       selectedDay = day;
-
       document.querySelectorAll(".day-btn").forEach(b => b.classList.remove("active"));
-      event.target.classList.add("active");
+      e.target.classList.add("active");
 
-      // Send full date instead of only dayOfWeek
       const today = new Date();
-      const date = new Date(today.setDate(today.getDate() + ((day + 7 - today.getDay()) % 7)));
-      const formattedDate = date.toISOString().split("T")[0]; // "2025-09-27"
-
-      fetchSlots(selectedStaff.id, formattedDate, day);
+      const targetDate = new Date(today.setDate(today.getDate() + ((day + 7 - today.getDay()) % 7)));
+      selectedDate = targetDate.toISOString().split("T")[0]; // ✅ store correct date
+      fetchSlots(selectedStaff.id, selectedDate);
     }
 
-
-// ✅ Fetch available slots for selected staff & date
-async function fetchSlots(staffId, date) {
-  try {
-    const res = await fetch(`/api/availability/${staffId}/slots?date=${date}&serviceId=${serviceId}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-
-    if (!res.ok) throw new Error("Failed to fetch slots");
-    const data = await res.json();
-
-    const container = document.getElementById("slots");
-    container.innerHTML = "";
-
-    if (!data.slots || data.slots.length === 0) {
-      container.innerHTML = "<p>No available slots</p>";
-      document.getElementById("bookBtn").disabled = true;
-      return;
+    async function fetchSlots(staffId, date){
+      try{
+        const res = await fetch(`/api/availability/${staffId}/slots?date=${date}&serviceId=${serviceId}`, { headers:{ Authorization:`Bearer ${token}` }});
+        if(!res.ok) throw new Error("Failed to fetch slots");
+        const data = await res.json();
+        const container = document.getElementById("slots");
+        container.innerHTML = "";
+        if(!data.slots || data.slots.length === 0){
+          container.innerHTML = "<p>No available slots</p>";
+          document.getElementById("bookBtn").disabled = true;
+          return;
+        }
+        data.slots.forEach(slot => {
+          const btn = document.createElement("button");
+          btn.className = "slot-btn";
+          btn.textContent = slot.display;
+          btn.onclick = (e) => selectSlot(slot, e);
+          container.appendChild(btn);
+        });
+      }catch(err){ console.error("Error fetching slots:", err); alert("Failed to load slots"); }
     }
 
-    (data.slots || []).forEach(slot => {
-      const btn = document.createElement("button");
-      btn.className = "slot-btn";
-      btn.textContent = slot.display; // "HH:MM - HH:MM"
+    function selectSlot(slot, e){
+      selectedSlot = slot;
+      document.querySelectorAll(".slot-btn").forEach(b => b.classList.remove("active"));
+      e.target.classList.add("active");
+      document.getElementById("bookBtn").disabled = false;
+    }
 
-      if (slot.booked) {
-        btn.disabled = true;
-        btn.style.background = "#e74c3c";
-        btn.title = slot.bookedBy ? `Booked by ${slot.bookedBy}` : "Booked";
-      } else {
-        btn.onclick = () => selectSlot(slot);
-      }
+    document.getElementById("bookBtn").addEventListener("click", async ()=>{
+      if(!selectedStaff || selectedDay===null || !selectedSlot || !selectedDate) 
+        return alert("Select all options");
 
-      container.appendChild(btn);
-    });
-
-
-  } catch (err) {
-    console.error("❌ Error fetching slots:", err);
-    alert("Failed to load slots. Try again later.");
-  }
-}
-
-// ✅ Select slot
-function selectSlot(slot) {
-  selectedSlot = slot; // store full slot object
-  document.querySelectorAll(".slot-btn").forEach(b => b.classList.remove("active"));
-  event.target.classList.add("active");
-  document.getElementById("bookBtn").disabled = false;
-}
-
-
-
-    // ✅ Book appointment
-    document.getElementById("bookBtn").addEventListener("click", async () => {
-      if (!selectedStaff || !selectedDay || !selectedSlot) return alert("Select all options");
-
-      // Step 1: Create Razorpay order + draft appointment
       const res = await fetch("/api/appointments/create-order", {
         method:"POST",
-        headers:{ "Content-Type":"application/json", Authorization:`Bearer ${token}` },
-        body: JSON.stringify({
+        headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+        body:JSON.stringify({
           serviceId,
           staffId: selectedStaff.id,
-          date: selectedDay,            
-          startTime: selectedSlot.startTime,   // ✅ correct
-          endTime: selectedSlot.endTime,       // ✅ correct
+          date: selectedDate,           // ✅ correct date
+          startTime: selectedSlot.startTime,
+          endTime: selectedSlot.endTime,
           price: serviceData.price
         })
       });
-      const data = await res.json();
 
-      if (!res.ok) return alert(data.message || "Failed to create order");
+      const data = await res.json();
+      if(!res.ok) return alert(data.message || "Failed to create order");
 
       const { order, appointment, paymentId } = data;
-
-      // Step 2: Open Razorpay Checkout
       const options = {
-        key: "rzp_test_RJwYDD8h6OWBGS", // your Razorpay key
+        key:"rzp_test_RJwYDD8h6OWBGS",
         amount: order.amount,
-        currency: "INR",
+        currency:"INR",
         order_id: order.id,
-        name: "Salon Booking",
+        name:"Salon Booking",
         description: serviceData.name,
-        handler: async function (response) {
-          // Step 3: Verify payment
+        handler: async function(response){
           const verifyRes = await fetch("/api/appointments/verify-payment", {
-            method: "POST",
-            headers: { "Content-Type":"application/json", Authorization:`Bearer ${token}` },
+            method:"POST",
+            headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
             body: JSON.stringify({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
@@ -241,25 +295,16 @@ function selectSlot(slot) {
             })
           });
           const result = await verifyRes.json();
-
-          if (verifyRes.ok) {
-            alert("Payment successful, booking confirmed!");
-            window.location.href = "/appointments";
-          } else {
-            alert(result.message || "Payment verification failed");
-          }
+          if(verifyRes.ok){ 
+            alert("Payment successful, booking confirmed!"); 
+            window.location.href="/appointments"; 
+          } else alert(result.message || "Payment verification failed");
         }
       };
-
-      const rzp = new Razorpay(options);
-      rzp.open();
+      new Razorpay(options).open();
     });
 
-
-    function logout() {
-      sessionStorage.clear();
-      window.location.href = "/";
-    }
+    function logout(){ sessionStorage.clear(); window.location.href="/"; }
 
     init();
   </script>

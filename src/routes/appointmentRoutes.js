@@ -1,6 +1,6 @@
 const express = require('express');
 const { authenticateToken } = require('../utils/jwt');
-const { bookAppointment, getAppointments, updateAppointment, cancelAppointment, createOrder, verifyPayment } = require('../controllers/appointmentController');
+const { getAppointmentById, getAppointments, updateAppointment, cancelAppointment, createOrder, verifyPayment } = require('../controllers/appointmentController');
 const router = express.Router();
 
 // 📌 Create Razorpay order + draft appointment
@@ -16,6 +16,9 @@ router.get('/', authenticateToken, getAppointments);
 router.put('/:id',authenticateToken, updateAppointment);
 
 // 📌 Cancel appointment
-router.delete('/:id',authenticateToken, cancelAppointment);
+router.delete('/:id', authenticateToken, cancelAppointment);
+
+// Get appointment by ID
+router.get("/:id", authenticateToken, getAppointmentById);
 
 module.exports = router;

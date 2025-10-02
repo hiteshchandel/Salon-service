@@ -149,8 +149,8 @@
     const userRole = sessionStorage.getItem("role"); // 'admin', 'user', 'staff'
 
     if (!token) {
-      alert("Please login first!");
-      window.location.href = "login.html";
+      // alert("Please login first!");
+      window.location.href = "/";
     }
 
     function logout() {

@@ -5,6 +5,7 @@ const {
     updateAvailability,
     deleteAvailability,
     getAllAvailability,
+    getStaffAvailability,
     getAvailableSlots
 } = require('../controllers/availabilityController');
 
@@ -22,7 +23,10 @@ router.delete('/:availabilityId', authenticateToken, deleteAvailability);
 // 📌 Get all availability (admin = all staff, staff = only self)
 router.get('/', authenticateToken, getAllAvailability);
 
-// 📌 View availability slots (for a given staffId and date/service)
-router.get('/:staffId/slots', getAvailableSlots);
+// 📌 Get staff active availability days (frontend: to load available days only)
+router.get('/staff/active', authenticateToken, getStaffAvailability);
+
+// 📌 View available slots for a given staffId + date + service
+router.get('/:staffId/slots', authenticateToken, getAvailableSlots);
 
 module.exports = router;

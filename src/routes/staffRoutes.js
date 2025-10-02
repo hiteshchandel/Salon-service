@@ -1,6 +1,6 @@
 const express = require('express');
 const { authenticateToken } = require('../utils/jwt');
-const { addStaff, assignServiceToStaff, getStaffProfiles, deleteStaff, getStaffByService } = require('../controllers/staffController');
+const { addStaff, assignServiceToStaff, getStaffProfiles, deleteStaff, getStaffByService, getStaffServices } = require('../controllers/staffController');
 const router = express.Router();
 
 // Admin: Add staff
@@ -15,5 +15,9 @@ router.get('/staffByService', getStaffByService);
 router.get('/', getStaffProfiles);
 
 router.delete('/:staffId', authenticateToken, deleteStaff);
+
+// Get assigned services for a staff
+router.get('/:staffId/services', authenticateToken, getStaffServices);
+
 
 module.exports = router;

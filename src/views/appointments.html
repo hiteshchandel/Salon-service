@@ -1,112 +1,297 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Salon Dashboard</title>
-  <style>
-    /* ===== Navbar ===== */
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background: #f4f6f9;
-      color: #333;
-    }
-    .navbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #333;
-      padding: 12px 20px;
-    }
-    .navbar a {
-        color: white;
-        margin: 0 12px;
-        text-decoration: none;
-        font-weight: bold;
-        padding: 6px 12px;
-        border-radius: 20px; /* capsule */
-        transition: background 0.3s, color 0.3s;
-    }
+<meta charset="UTF-8">
+<title>My Appointments</title>
+<style>
+  body { font-family: Arial, sans-serif; margin:0; background:#f4f6f9; color:#333; }
+  .navbar { display:flex; justify-content:space-between; align-items:center; background:#333; padding:12px 20px; }
+  .navbar a { color:white; margin:0 12px; text-decoration:none; font-weight:bold; padding:6px 12px; border-radius:20px; transition:0.3s; }
+  .navbar a.active { background:white; color:#333; }
+  .navbar button { background:#e74c3c; color:white; border:none; padding:8px 14px; border-radius:4px; cursor:pointer; }
+  .container { max-width:1100px; margin:20px auto; padding:0 15px; }
+  h1 { text-align:center; margin-bottom:20px; }
 
-    .navbar a:hover {
-      text-decoration: none;
-      background: rgba(255,255,255,0.2);
-    }
-      /* Active (highlighted) link */
-    .navbar a.active {
-        background: white;
-        color: #333;
-    }
-    .navbar button {
-      background: #e74c3c;
-      color: white;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .navbar button:hover {
-      background: #c0392b;
-    }
+  table { width:100%; border-collapse: collapse; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,0.1); border-radius:8px; overflow:hidden; }
+  th, td { padding:12px 15px; text-align:left; border-bottom:1px solid #ddd; }
+  th { background:#3498db; color:#fff; }
+  tr:hover { background:#f1f1f1; }
+  .status { padding:4px 8px; border-radius:4px; color:#fff; font-weight:bold; text-align:center; display:inline-block; }
+  .status.paid { background:#27ae60; }
+  .status.pending { background:#f39c12; }
+  .status.cancelled { background:#e74c3c; }
+  button.action-btn { padding:6px 12px; border:none; border-radius:6px; cursor:pointer; color:white; margin-right:5px; transition:0.2s; }
+  button.reschedule { background:#2980b9; } button.reschedule:hover { background:#1f618d; }
+  button.cancel { background:#e74c3c; } button.cancel:hover { background:#c0392b; }
+  button.pay { background:#27ae60; } button.pay:hover { background:#1e8449; }
 
-    /* ===== Dashboard Content ===== */
-    main {
-      padding: 20px;
-    }
+  /* Modal */
+  .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; }
+  .modal-content { background:#fff; padding:20px; border-radius:10px; width:350px; max-width:90%; position:relative; }
+  .modal-content h2 { margin-top:0; text-align:center; }
+  .close { position:absolute; top:10px; right:10px; font-size:20px; cursor:pointer; }
 
-  </style>
+  select, button.submit { width:100%; padding:10px; margin:10px 0; border-radius:6px; border:1px solid #ccc; }
+  button.submit { background:#2980b9; color:#fff; border:none; cursor:pointer; }
+  button.submit:hover { background:#1f618d; }
+
+  .table-wrapper::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .table-wrapper::-webkit-scrollbar-thumb {
+    background-color: rgba(0,0,0,0.2);
+    border-radius: 4px;
+  }
+
+  .table-wrapper::-webkit-scrollbar-track {
+    background-color: rgba(0,0,0,0.05);
+  }
+
+
+  @media(max-width:768px){
+    table, thead, tbody, th, td, tr { display:block; }
+    tr { margin-bottom:15px; }
+    th { display:none; }
+    td { padding:10px; position:relative; text-align:right; }
+    td::before { content: attr(data-label); position:absolute; left:10px; width:50%; font-weight:bold; text-align:left; }
+  }
+</style>
 </head>
 <body>
-  <!-- ✅ Navbar -->
-  <nav class="navbar">
-    <div class="nav-links">
-      <!-- <a href="dashboard.html">Dashboard</a> -->
-      <a href="/dashboard">Services</a>
-      <a href="/appointments">My Appointments</a>
-      <a href="/users">Manage Users</a>
-      <a href="/staff">Manage Staff</a>
-      <a href="/availability">Staff availability</a>
-      <a href="/profile">Profile</a>
-    </div>
-    <button onclick="logout()">Logout</button>
-  </nav>
+<nav class="navbar">
+  <div class="nav-links">
+    <a href="/dashboard">Services</a>
+    <a href="/appointments" class="active">My Appointments</a>
+    <a href="/users">Manage Users</a>
+    <a href="/staff">Manage Staff</a>
+    <a href="/availability">Staff availability</a>
+    <a href="/profile">Profile</a>
+  </div>
+  <button onclick="logout()">Logout</button>
+</nav>
 
-  <!-- ✅ Dashboard Content -->
-  <main>
-    <h1>All appointment List</h1>
-  </main>
+<div class="container">
+  <h1>My Appointments</h1>
+  <!-- Scrollable table wrapper -->
+  <div class="table-wrapper" style="max-height:500px; overflow-y:auto;">
+    <table id="appointmentsTable">
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Staff</th>
+          <th>Date</th>
+          <th>Time</th>
+          <th>Price (₹)</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="7" style="text-align:center;">Loading appointments...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
 
-  <script>
-    // ✅ Check login token
-    document.addEventListener("DOMContentLoaded", () => {
-      const token = sessionStorage.getItem("token");
-      if (!token) {
-        alert("Please login first!");
-        window.location.href = "login.html";
-      }
-    });
 
-    // ✅ Logout
-    function logout() {
-      sessionStorage.removeItem("token");
-      window.location.href = "/";
+<!-- Modal for Reschedule -->
+<div class="modal" id="rescheduleModal">
+  <div class="modal-content">
+    <span class="close" onclick="closeModal()">&times;</span>
+    <h2>Reschedule Appointment</h2>
+    <label for="selectDay">Select Day:</label>
+    <select id="selectDay"></select>
+    <label for="selectSlot">Select Time Slot:</label>
+    <select id="selectSlot"></select>
+    <button class="submit" onclick="submitReschedule()">Submit</button>
+  </div>
+</div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+const token = sessionStorage.getItem("token");
+let appointments = [];
+let rescheduleId = null;
+let availableDays = [];
+let availableSlots = [];
+
+if(!token){  window.location.href="/"; }
+
+async function fetchAppointments(){
+  try{
+    const res = await fetch("/api/appointments", { headers:{ Authorization:`Bearer ${token}` }});
+    const data = await res.json();
+    appointments = data.appointments;
+    const tbody = document.querySelector("#appointmentsTable tbody");
+    tbody.innerHTML = "";
+
+    if(!appointments || appointments.length===0){
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">No appointments found.</td></tr>`;
+      return;
     }
-    // ✅ Highlight active navbar link
-  document.addEventListener("DOMContentLoaded", () => {
-    const links = document.querySelectorAll(".navbar a");
-    const currentPath = window.location.pathname;
 
-    links.forEach(link => {
-      if (link.getAttribute("href") === currentPath) {
-        link.classList.add("active");
-      }
+    appointments.forEach(app=>{
+      const tr = document.createElement("tr");
+      let actions = "";
+      if(app.status !== "cancelled"){
+        actions += `<button class="action-btn reschedule" onclick="openReschedule(${app.id}, ${app.staffId})">Reschedule</button>
+                    <button class="action-btn cancel" onclick="cancelAppointment(${app.id})">Cancel</button>`;
+        if(app.status === "pending") {
+          actions += `<button class="action-btn pay" onclick="payAppointment(${app.id}, ${app.Service.price})">Pay</button>`;
+        }
+      } else actions = '-';
 
-      link.addEventListener("click", () => {
-        links.forEach(l => l.classList.remove("active"));
-        link.classList.add("active");
-      });
+      tr.innerHTML = `
+        <td data-label="Service">${app.Service.name}</td>
+        <td data-label="Staff">${app.Staff ? app.Staff.name : '-'}</td>
+        <td data-label="Date">${new Date(app.date).toLocaleDateString()}</td>
+        <td data-label="Time">${app.startTime} - ${app.endTime}</td>
+        <td data-label="Price">${app.Service.price}</td>
+        <td data-label="Status"><span class="status ${app.status.toLowerCase()}">${app.status}</span></td>
+        <td data-label="Actions">${actions}</td>
+      `;
+      tbody.appendChild(tr);
     });
+  }catch(err){ console.error(err); alert("Failed to load appointments"); }
+}
+
+// Pay pending appointment (for existing Razorpay order)
+async function payAppointment(appointmentId, price) {
+  try {
+    // Get appointment & payment details
+    const res = await fetch(`/api/appointments/${appointmentId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.message || "Failed to fetch appointment");
+
+    const appointment = data.appointment;
+    if (!appointment || !appointment.Payment) return alert("No payment info found");
+
+    const payment = appointment.Payment;
+
+    // Razorpay options
+    const options = {
+      key: "rzp_test_RJwYDD8h6OWBGS", // replace with your live key in production
+      amount: payment.amount * 100, // in paise
+      currency: "INR",
+      order_id: payment.razorpayOrderId, // existing order
+      name: "Salon Booking",
+      description: "Payment for appointment",
+      handler: async function (response) {
+        // Verify payment
+        const verifyRes = await fetch("/api/appointments/verify-payment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            appointmentId: appointmentId,
+            paymentId: payment.id
+          })
+        });
+        const result = await verifyRes.json();
+        if (verifyRes.ok) {
+          alert("Payment successful!");
+          fetchAppointments();
+        } else {
+          alert(result.message || "Payment verification failed");
+        }
+      }
+    };
+
+    new Razorpay(options).open();
+  } catch (err) {
+    console.error(err);
+    alert("Payment error");
+  }
+}
+
+
+// Cancel Appointment
+async function cancelAppointment(id){
+  if(!confirm("Are you sure you want to cancel this appointment?")) return;
+  try{
+    const res = await fetch(`/api/appointments/${id}`, { method:"DELETE", headers:{ Authorization:`Bearer ${token}` }});
+    const data = await res.json();
+    if(res.ok){ alert("Appointment cancelled!"); fetchAppointments(); }
+    else alert(data.message || "Failed to cancel appointment");
+  }catch(err){ console.error(err); alert("Failed to cancel appointment"); }
+}
+
+// Reschedule Appointment - Modal
+async function openReschedule(id, staffId){
+  rescheduleId = id;
+  const modal = document.getElementById("rescheduleModal");
+  modal.style.display="flex";
+
+  // Fetch available days for staff
+  const dayRes = await fetch(`/api/availability/staff/active?staffId=${staffId}`, { headers:{ Authorization:`Bearer ${token}` }});
+  availableDays = await dayRes.json();
+  const daySelect = document.getElementById("selectDay");
+  daySelect.innerHTML = "";
+  (availableDays.availability || []).forEach(av=>{
+    const option = document.createElement("option");
+    const dayName = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][av.dayOfWeek];
+    option.value = av.dayOfWeek;
+    option.textContent = dayName;
+    daySelect.appendChild(option);
   });
-  </script>
+  fetchSlotsForDay();
+}
+
+// Fetch slots when day changes
+document.getElementById("selectDay").addEventListener("change", fetchSlotsForDay);
+async function fetchSlotsForDay(){
+  const day = document.getElementById("selectDay").value;
+  const staffId = appointments.find(a=>a.id===rescheduleId).staffId;
+  const today = new Date();
+  const targetDate = new Date(today.setDate(today.getDate() + ((day + 7 - today.getDay()) % 7)));
+  const dateStr = targetDate.toISOString().split("T")[0];
+
+  const res = await fetch(`/api/availability/${staffId}/slots?date=${dateStr}&serviceId=${appointments.find(a=>a.id===rescheduleId).Service.id}`, { headers:{ Authorization:`Bearer ${token}` }});
+  const data = await res.json();
+  const slotSelect = document.getElementById("selectSlot");
+  slotSelect.innerHTML = "";
+  (data.slots || []).forEach(slot=>{
+    const option = document.createElement("option");
+    option.value = slot.startTime;
+    option.textContent = slot.display;
+    slotSelect.appendChild(option);
+  });
+}
+
+// Submit reschedule
+async function submitReschedule(){
+  const day = document.getElementById("selectDay").value;
+  const slot = document.getElementById("selectSlot").value;
+  const staffId = appointments.find(a=>a.id===rescheduleId).staffId;
+  const today = new Date();
+  const targetDate = new Date(today.setDate(today.getDate() + ((day + 7 - today.getDay()) % 7)));
+  const dateStr = targetDate.toISOString().split("T")[0];
+
+  try{
+    const res = await fetch(`/api/appointments/${rescheduleId}`, {
+      method:"PUT",
+      headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
+      body: JSON.stringify({ date: dateStr, startTime: slot })
+    });
+    const data = await res.json();
+    if(res.ok){ alert("Appointment rescheduled!"); closeModal(); fetchAppointments(); }
+    else alert(data.message || "Failed to reschedule");
+  }catch(err){ console.error(err); alert("Failed to reschedule"); }
+}
+
+function closeModal(){ document.getElementById("rescheduleModal").style.display="none"; }
+
+function logout(){ sessionStorage.removeItem("token"); window.location.href="/"; }
+
+document.addEventListener("DOMContentLoaded", fetchAppointments);
+</script>
 </body>
 </html>

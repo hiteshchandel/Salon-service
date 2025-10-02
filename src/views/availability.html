@@ -4,92 +4,25 @@
   <meta charset="UTF-8">
   <title>Staff Availability</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background: #f4f6f9;
-      color: #333;
-    }
-    .navbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #333;
-      padding: 12px 20px;
-    }
-    .navbar a {
-      color: white;
-      margin: 0 12px;
-      text-decoration: none;
-      font-weight: bold;
-      padding: 6px 12px;
-      border-radius: 20px;
-      transition: background 0.3s, color 0.3s;
-    }
-    .navbar a.active {
-      background: white;
-      color: #333;
-    }
-    .navbar button {
-      background: #e74c3c;
-      color: white;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .container {
-      max-width: 900px;
-      margin: 20px auto;
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-    h2 {
-      margin-bottom: 15px;
-      color: #444;
-      text-align: center;
-    }
-    form {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-      margin-bottom: 20px;
-      align-items: center;
-      justify-content: center;
-    }
-    select, input {
-      padding: 8px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
-    button {
-      padding: 8px 14px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    .add-btn { background: #3498db; color: white; }
-    .save-btn { background: #27ae60; color: white; }
-    .delete-btn { background: #e74c3c; color: white; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 12px;
-      text-align: center;
-    }
-    th {
-      background: #f1f1f1;
-    }
+    body { font-family: Arial, sans-serif; margin:0; background:#f4f6f9; color:#333; }
+    .navbar { display:flex; justify-content:space-between; align-items:center; background:#333; padding:12px 20px; }
+    .navbar a { color:white; margin:0 12px; text-decoration:none; font-weight:bold; padding:6px 12px; border-radius:20px; transition: background 0.3s,color 0.3s; }
+    .navbar a.active { background:white; color:#333; }
+    .navbar button { background:#e74c3c; color:white; border:none; padding:8px 14px; border-radius:4px; cursor:pointer; }
+    .container { max-width:900px; margin:20px auto; background:white; padding:20px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
+    h2 { margin-bottom:15px; color:#444; text-align:center; }
+    form { display:flex; flex-wrap:wrap; gap:15px; margin-bottom:20px; align-items:center; justify-content:center; }
+    select,input { padding:8px; border:1px solid #ccc; border-radius:6px; }
+    button { padding:8px 14px; border:none; border-radius:6px; cursor:pointer; }
+    .add-btn { background:#3498db; color:white; }
+    .save-btn { background:#27ae60; color:white; }
+    .delete-btn { background:#e74c3c; color:white; }
+    table { width:100%; border-collapse:collapse; margin-top:15px; }
+    th,td { border:1px solid #ddd; padding:12px; text-align:center; }
+    th { background:#f1f1f1; }
   </style>
 </head>
 <body>
-  <!-- ✅ Navbar -->
   <nav class="navbar">
     <div class="nav-links">
       <a href="/dashboard">Services</a>
@@ -128,10 +61,6 @@
         End:
         <input type="time" id="endTime" required>
       </label>
-      <label>
-        Slot Length (min):
-        <input type="number" id="slotLength" value="30" min="10" max="180">
-      </label>
       <button type="submit" id="formBtn" class="add-btn">Add Availability</button>
     </form>
 
@@ -142,7 +71,6 @@
           <th>Day</th>
           <th>Start Time</th>
           <th>End Time</th>
-          <th>Slot Length</th>
           <th>Status</th>
           <th>Actions</th>
         </tr>
@@ -153,10 +81,7 @@
 
   <script>
     const token = sessionStorage.getItem("token");
-    if (!token) {
-      alert("Please login first!");
-      window.location.href = "login.html";
-    }
+    if (!token) {  window.location.href="/"; }
 
     const dayMap = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
     const tableBody = document.querySelector("#availabilityTable tbody");
@@ -168,9 +93,7 @@
     document.addEventListener("DOMContentLoaded", loadAvailability);
 
     async function loadAvailability() {
-      const res = await fetch("/api/availability", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetch("/api/availability", { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       renderTable(data.availability || []);
       disableUsedDays(data.availability || []);
@@ -184,10 +107,9 @@
           <td>${dayMap[av.dayOfWeek]}</td>
           <td>${av.startTime}</td>
           <td>${av.endTime}</td>
-          <td>${av.slotLength}</td>
           <td>${av.isActive ? "Active" : "Inactive"}</td>
           <td>
-            <button class="save-btn" onclick="editAvailability(${av.id}, ${av.dayOfWeek}, '${av.startTime}', '${av.endTime}', ${av.slotLength})">Edit</button>
+            <button class="save-btn" onclick="editAvailability(${av.id}, ${av.dayOfWeek}, '${av.startTime}', '${av.endTime}')">Edit</button>
             <button class="delete-btn" onclick="deleteAvailability(${av.id})">Delete</button>
           </td>
         `;
@@ -196,40 +118,32 @@
     }
 
     function disableUsedDays(items) {
-      [...daySelect.options].forEach(opt => opt.disabled = false); // reset first
+      [...daySelect.options].forEach(opt => opt.disabled = false);
       const used = items.map(av => av.dayOfWeek.toString());
-      [...daySelect.options].forEach(opt => {
-        if (used.includes(opt.value)) {
-          opt.disabled = true;
-        }
-      });
+      [...daySelect.options].forEach(opt => { if (used.includes(opt.value)) opt.disabled = true; });
     }
 
-    // Handle Add/Update Form
     form.addEventListener("submit", async e => {
       e.preventDefault();
       const payload = {
         dayOfWeek: parseInt(daySelect.value),
         startTime: document.getElementById("startTime").value,
-        endTime: document.getElementById("endTime").value,
-        slotLength: parseInt(document.getElementById("slotLength").value)
+        endTime: document.getElementById("endTime").value
       };
 
       const editId = editIdField.value;
       if (editId) {
-        // Update mode
         const res = await fetch(`/api/availability/${editId}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          headers: { "Content-Type":"application/json", Authorization:`Bearer ${token}` },
           body: JSON.stringify(payload)
         });
         const data = await res.json();
         alert(data.message);
       } else {
-        // Add mode
         const res = await fetch("/api/availability/", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          headers: { "Content-Type":"application/json", Authorization:`Bearer ${token}` },
           body: JSON.stringify(payload)
         });
         const data = await res.json();
@@ -243,35 +157,24 @@
       loadAvailability();
     });
 
-    // Pre-fill form for editing
-    function editAvailability(id, dayOfWeek, start, end, slotLength) {
+    function editAvailability(id, dayOfWeek, start, end) {
       editIdField.value = id;
       daySelect.value = dayOfWeek;
-      document.getElementById("startTime").value = start.slice(0,5); // keep HH:mm
+      document.getElementById("startTime").value = start.slice(0,5);
       document.getElementById("endTime").value = end.slice(0,5);
-      document.getElementById("slotLength").value = slotLength;
-
       formBtn.textContent = "Save Changes";
       formBtn.className = "save-btn";
     }
 
-    // Delete
     async function deleteAvailability(id) {
       if (!confirm("Are you sure you want to delete this availability?")) return;
-
-      const res = await fetch(`/api/availability/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await fetch(`/api/availability/${id}`, { method:"DELETE", headers:{Authorization:`Bearer ${token}`} });
       const data = await res.json();
       alert(data.message);
       loadAvailability();
     }
 
-    function logout() {
-      sessionStorage.clear();
-      window.location.href = "/";
-    }
+    function logout() { sessionStorage.clear(); window.location.href="/"; }
   </script>
 </body>
 </html>

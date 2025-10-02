@@ -4,38 +4,37 @@ const Service = require('../models/serviceModel');
 const User = require('../models/userModel');
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
+const { Op } = require('sequelize');
 
-// 🔹 Setup Razorpay
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,
     key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
-/**
- * 📌 Create Razorpay order + draft appointment
- */
+// Create Razorpay order + draft appointment
 exports.createOrder = async (req, res) => {
     try {
-        const { userId, staffId, serviceId, date, startTime, endTime } = req.body;
+        const { staffId, serviceId, date, startTime, source } = req.body;
 
-        // Validate service
         const service = await Service.findByPk(serviceId);
         if (!service) return res.status(404).json({ message: "Service not found" });
 
-        // Validate staff
         const staff = await User.findOne({ where: { id: staffId, role: "staff" } });
         if (!staff) return res.status(404).json({ message: "Staff not found" });
 
-        // Create Razorpay order
+        let [h, m] = startTime.split(":").map(Number);
+        let endHour = h + Math.floor((m + service.duration) / 60);
+        let endMin = (m + service.duration) % 60;
+        const endTime = `${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}:00`;
+
         const order = await razorpay.orders.create({
             amount: service.price * 100,
             currency: "INR",
             receipt: `receipt_${Date.now()}`
         });
 
-        // Create appointment (and capture variable)
         const appointment = await Appointment.create({
-            userId: req.user.id,  // take logged-in user
+            userId: req.user.id,
             staffId,
             serviceId,
             date,
@@ -43,10 +42,9 @@ exports.createOrder = async (req, res) => {
             endTime,
             status: "pending",
             paymentStatus: "pending",
-            source: "web"
+            source: source || "web"
         });
 
-        // Create payment record
         const payment = await Payment.create({
             appointmentId: appointment.id,
             amount: service.price,
@@ -54,22 +52,14 @@ exports.createOrder = async (req, res) => {
             status: "created"
         });
 
-        return res.status(201).json({
-            message: "Order created successfully",
-            order,
-            appointment,
-            paymentId: payment.id
-        });
+        return res.status(201).json({ message: "Order created successfully", order, appointment, paymentId: payment.id });
     } catch (err) {
         console.error("❌ Error creating order:", err);
         return res.status(500).json({ message: "Internal server error", error: err.message });
     }
 };
 
-
-/**
- * 📌 Verify Razorpay payment + update both Payment & Appointment
- */
+// Verify Razorpay payment + update Appointment & Payment
 exports.verifyPayment = async (req, res) => {
     try {
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, appointmentId, paymentId } = req.body;
@@ -79,45 +69,33 @@ exports.verifyPayment = async (req, res) => {
             .update(`${razorpay_order_id}|${razorpay_payment_id}`)
             .digest("hex");
 
-        if (expectedSignature !== razorpay_signature) {
+        if (expectedSignature !== razorpay_signature)
             return res.status(400).json({ message: "Payment verification failed" });
-        }
 
         const payment = await Payment.findByPk(paymentId);
         const appointment = await Appointment.findByPk(appointmentId);
 
-        if (!payment || !appointment) {
-            return res.status(404).json({ message: "Invalid payment or appointment" });
-        }
+        if (!payment || !appointment) return res.status(404).json({ message: "Invalid payment or appointment" });
+        if (payment.status === "captured") return res.status(400).json({ message: "Payment already verified" });
 
-        // Update payment
         payment.razorpayPaymentId = razorpay_payment_id;
         payment.razorpaySignature = razorpay_signature;
         payment.status = "captured";
         payment.paidAt = new Date();
         await payment.save();
 
-        // Update appointment only if it was unpaid
-        if (appointment.paymentStatus !== "paid") {
-            appointment.paymentStatus = "paid";
-            appointment.status = "confirmed";
-            await appointment.save();
-        }
+        appointment.paymentStatus = "paid";
+        appointment.status = "confirmed";
+        await appointment.save();
 
-        return res.status(200).json({
-            message: "Payment verified and appointment confirmed",
-            appointment,
-            payment
-        });
+        return res.status(200).json({ message: "Payment verified and appointment confirmed", appointment, payment });
     } catch (err) {
         console.error("❌ Error verifying payment:", err);
         return res.status(500).json({ message: "Internal server error", error: err.message });
     }
 };
 
-/**
- * 📌 Get Appointments
- */
+// Get Appointments
 exports.getAppointments = async (req, res) => {
     try {
         const where = req.user.role === "admin" ? {} : { userId: req.user.id };
@@ -139,31 +117,34 @@ exports.getAppointments = async (req, res) => {
     }
 };
 
-/**
- * 📌 Update / Reschedule Appointment
- */
+// Update / Reschedule Appointment
 exports.updateAppointment = async (req, res) => {
     try {
         const { id } = req.params;
-        const { date, startTime, endTime } = req.body;
+        const { date, startTime } = req.body;
 
         const appointment = await Appointment.findByPk(id);
         if (!appointment) return res.status(404).json({ message: "Appointment not found" });
-        if (appointment.userId !== req.user.id && req.user.role !== "admin") {
+        if (appointment.userId !== req.user.id && req.user.role !== "admin")
             return res.status(403).json({ message: "Unauthorized" });
-        }
+
+        const service = await Service.findByPk(appointment.serviceId);
+        if (!service) return res.status(404).json({ message: "Service not found" });
+
+        const newStartTime = startTime || appointment.startTime;
+        const [h, m] = newStartTime.split(":").map(Number);
+        const endHour = h + Math.floor((m + service.duration) / 60);
+        const endMin = (m + service.duration) % 60;
+        const newEndTime = `${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}:00`;
+
+        // Optional: check overlapping appointments here
 
         appointment.date = date || appointment.date;
-        appointment.startTime = startTime || appointment.startTime;
-        appointment.endTime = endTime || appointment.endTime;
-
-        // Keep confirmed if already paid
-        if (appointment.paymentStatus !== "paid") {
-            appointment.status = "pending";
-        }
+        appointment.startTime = newStartTime;
+        appointment.endTime = newEndTime;
+        if (appointment.paymentStatus !== "paid") appointment.status = "pending";
 
         await appointment.save();
-
         return res.status(200).json({ message: "Appointment updated", appointment });
     } catch (err) {
         console.error("❌ Error updating appointment:", err);
@@ -171,18 +152,15 @@ exports.updateAppointment = async (req, res) => {
     }
 };
 
-/**
- * 📌 Cancel Appointment
- */
+// Cancel Appointment
 exports.cancelAppointment = async (req, res) => {
     try {
         const { id } = req.params;
         const appointment = await Appointment.findByPk(id);
         if (!appointment) return res.status(404).json({ message: "Appointment not found" });
 
-        if (appointment.userId !== req.user.id && req.user.role !== "admin") {
+        if (appointment.userId !== req.user.id && req.user.role !== "admin")
             return res.status(403).json({ message: "Unauthorized" });
-        }
 
         appointment.status = "cancelled";
         await appointment.save();
@@ -193,3 +171,31 @@ exports.cancelAppointment = async (req, res) => {
         return res.status(500).json({ message: "Internal server error", error: err.message });
     }
 };
+
+// Get single appointment by ID
+exports.getAppointmentById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const appointment = await Appointment.findByPk(id, {
+            include: [
+                { model: Service, attributes: ["id", "name", "price", "duration"] },
+                { model: User, as: "Staff", attributes: ["id", "name", "email"] },
+                { model: Payment, attributes: ["id", "amount", "status", "razorpayOrderId", "razorpayPaymentId"] }
+            ]
+        });
+
+        if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+
+        // If user is not admin, ensure they own the appointment
+        if (req.user.role !== "admin" && appointment.userId !== req.user.id) {
+            return res.status(403).json({ message: "Unauthorized" });
+        }
+
+        return res.status(200).json({ appointment });
+    } catch (err) {
+        console.error("❌ Error fetching appointment by ID:", err);
+        return res.status(500).json({ message: "Internal server error", error: err.message });
+    }
+};
+

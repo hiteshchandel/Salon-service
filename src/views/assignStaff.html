@@ -56,10 +56,6 @@
         justify-content: space-between;
         align-items: center;
       }
-      .service-card input {
-        width: 60px;
-        margin-left: 6px;
-      }
       .btn {
         background: #3498db;
         color: white;
@@ -76,12 +72,12 @@
   <body>
     <nav class="navbar">
       <div class="nav-links">
-      <a href="/dashboard">Services</a>
-      <a href="/appointments">My Appointments</a>
-      <a href="/users">Manage Users</a>
-      <a href="/staff">Manage Staff</a>
-      <a href="/availability">Staff availability</a>
-      <a href="/profile">Profile</a>
+        <a href="/dashboard">Services</a>
+        <a href="/appointments">My Appointments</a>
+        <a href="/users">Manage Users</a>
+        <a href="/staff">Manage Staff</a>
+        <a href="/availability">Staff availability</a>
+        <a href="/profile">Profile</a>
       </div>
       <button onclick="logout()">Logout</button>
     </nav>
@@ -93,10 +89,7 @@
 
     <script>
       const token = sessionStorage.getItem("token");
-      if (!token) {
-        alert("Please login first!");
-        window.location.href = "login.html";
-      }
+      if (!token) window.location.href = "/";
 
       function logout() {
         sessionStorage.clear();
@@ -123,102 +116,78 @@
         window.location.href = "/staff";
       }
 
-      // Fetch all services
+      // Fetch all services + staff assigned services
       async function fetchServices() {
         try {
+          // Fetch all services
           const res = await fetch("/api/services/", {
             headers: { Authorization: `Bearer ${token}` },
           });
-          const data = await res.json();
-          renderServices(data.services || []);
+          const servicesData = await res.json();
+          const allServices = servicesData.services || [];
+
+          // Fetch staff assigned services
+          const staffRes = await fetch(`/api/staff/${staffId}/services`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const staffData = await staffRes.json();
+          const assignedServices = staffData.services.map((s) => s.id);
+
+          renderServices(allServices, assignedServices);
         } catch (err) {
           console.error("❌ Error fetching services:", err);
         }
       }
 
-      // Render services with assign button
-      function renderServices(services) {
+      // Render services with assign button / already assigned
+      function renderServices(services, assignedServices) {
         const list = document.getElementById("serviceList");
         list.innerHTML = "";
 
         services.forEach((service) => {
+          const isAssigned = assignedServices.includes(service.id);
           const card = document.createElement("div");
           card.className = "service-card";
           card.innerHTML = `
-          <div>
-            <strong>${service.name}</strong> - ₹${service.price} / ${service.duration} min
-          </div>
-          <div>
-            <input type="number" placeholder="Price" id="price-${service.id}">
-            <input type="number" placeholder="Duration" id="duration-${service.id}">
-            <button class="btn">Assign</button>
-          </div>
-        `;
-          const btn = card.querySelector("button");
-          btn.onclick = () => assignService(service.id);
+            <div>
+              <strong>${service.name}</strong> - ₹${service.price} / ${service.duration} min
+            </div>
+            <div>
+              ${isAssigned ? '<span style="color:green; font-weight:bold;">Already Assigned</span>' 
+                          : '<button class="btn">Assign</button>'}
+            </div>
+          `;
+          if (!isAssigned) {
+            const btn = card.querySelector("button");
+            btn.onclick = () => assignService(service.id);
+          }
           list.appendChild(card);
         });
       }
 
-      // Assign service
+      // Assign service (no overrides)
       async function assignService(serviceId) {
-        const priceOverride =
-          document.getElementById(`price-${serviceId}`).value || null;
-        const durationOverride =
-          document.getElementById(`duration-${serviceId}`).value || null;
-
         try {
-          const res = await fetch(
-            `/api/staff/${staffId}/services/${serviceId}`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ priceOverride, durationOverride }),
-            }
-          );
+          const res = await fetch(`/api/staff/${staffId}/services/${serviceId}`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({}),
+          });
           const data = await res.json();
-          if (res.ok) alert(`Service assigned successfully!`);
-          else alert(data.message || "Failed to assign service");
+          if (res.ok) {
+            alert(`Service assigned successfully!`);
+            fetchServices(); // refresh list to show "Already Assigned"
+          } else alert(data.message || "Failed to assign service");
         } catch (err) {
           console.error("❌ Error assigning service:", err);
         }
       }
 
       fetchServices();
-      // ✅ Highlight active navbar link
-      document.addEventListener("DOMContentLoaded", () => {
-        const links = document.querySelectorAll(".navbar a");
-        const currentPath = window.location.pathname;
-
-        links.forEach((link) => {
-          if (link.getAttribute("href") === currentPath) {
-            link.classList.add("active");
-          }
-
-          const links = document.querySelectorAll(".navbar a");
-          const currentPath = window.location.pathname;
-
-          links.forEach((link) => {
-            const href = link.getAttribute("href");
-
-            // Highlight "Manage Staff" for both /staff and /assign-service
-            if (
-              href === "/staff" &&
-              (currentPath === "/staff" || currentPath === "/assign-service")
-            ) {
-              link.classList.add("active");
-            }
-
-            link.addEventListener("click", () => {
-              links.forEach((l) => l.classList.remove("active"));
-              link.classList.add("active");
-            });
-          });
-        });
-      });
     </script>
+
   </body>
 </html>

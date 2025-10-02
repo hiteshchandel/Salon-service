@@ -28,8 +28,8 @@ Appointment.hasOne(Payment, { foreignKey: 'appointmentId', onDelete: 'CASCADE' }
 Payment.belongsTo(Appointment, { foreignKey: 'appointmentId' });
 
 // Staff Services (M:N) - User (staff) <-> Service through StaffService
-User.belongsToMany(Service, { through: StaffService, foreignKey: 'userId', otherKey: 'serviceId' });
-Service.belongsToMany(User, { through: StaffService, foreignKey: 'serviceId', otherKey: 'userId' });
+User.belongsToMany(Service, { through: StaffService, foreignKey: 'userId', otherKey: 'serviceId', as: 'Services' });
+Service.belongsToMany(User, { through: StaffService, foreignKey: 'serviceId', otherKey: 'userId', as: 'Staffs' });
 
 // ✅ Direct associations for StaffService (fixes eager loading error)
 StaffService.belongsTo(User, { foreignKey: 'userId' });
