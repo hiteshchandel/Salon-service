@@ -9,7 +9,7 @@
     .navbar a { color:white; margin:0 12px; text-decoration:none; font-weight:bold; padding:6px 12px; border-radius:20px; transition: background 0.3s,color 0.3s; }
     .navbar a.active { background:white; color:#333; }
     .navbar button { background:#e74c3c; color:white; border:none; padding:8px 14px; border-radius:4px; cursor:pointer; }
-    .container { max-width:900px; margin:20px auto; background:white; padding:20px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
+    .container { max-width:1000px; margin:20px auto; background:white; padding:20px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
     h2 { margin-bottom:15px; color:#444; text-align:center; }
     form { display:flex; flex-wrap:wrap; gap:15px; margin-bottom:20px; align-items:center; justify-content:center; }
     select,input { padding:8px; border:1px solid #ccc; border-radius:6px; }
@@ -17,6 +17,8 @@
     .add-btn { background:#3498db; color:white; }
     .save-btn { background:#27ae60; color:white; }
     .delete-btn { background:#e74c3c; color:white; }
+    .search-bar { margin-bottom:20px; text-align:center; }
+    .search-bar input { padding:8px; width:250px; border-radius:6px; border:1px solid #ccc; }
     table { width:100%; border-collapse:collapse; margin-top:15px; }
     th,td { border:1px solid #ddd; padding:12px; text-align:center; }
     th { background:#f1f1f1; }
@@ -24,22 +26,18 @@
 </head>
 <body>
   <nav class="navbar">
-    <div class="nav-links">
-      <a href="/dashboard">Services</a>
-      <a href="/appointments">My Appointments</a>
-      <a href="/users">Manage Users</a>
-      <a href="/staff">Manage Staff</a>
-      <a href="/availability" class="active">Staff Availability</a>
-      <a href="/profile">Profile</a>
-    </div>
+    <div class="nav-links" id="navLinks"></div>
     <button onclick="logout()">Logout</button>
   </nav>
 
   <div class="container">
     <h2>Manage Availability</h2>
 
-    <!-- Add/Update Availability -->
-    <form id="availabilityForm">
+    <div class="search-bar" id="searchContainer" style="display:none;">
+      <input type="text" id="searchInput" placeholder="Search staff by name..." onkeyup="filterByName()">
+    </div>
+
+    <form id="availabilityForm" style="display:none;">
       <input type="hidden" id="editId">
       <label>
         Day of Week:
@@ -64,15 +62,14 @@
       <button type="submit" id="formBtn" class="add-btn">Add Availability</button>
     </form>
 
-    <!-- Availability Table -->
     <table id="availabilityTable">
       <thead>
         <tr>
+          <th>Staff</th>
           <th>Day</th>
           <th>Start Time</th>
           <th>End Time</th>
-          <th>Status</th>
-          <th>Actions</th>
+          <th>Status / Actions</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -81,100 +78,136 @@
 
   <script>
     const token = sessionStorage.getItem("token");
-    if (!token) {  window.location.href="/"; }
+    const role = sessionStorage.getItem("role"); // "admin" or "staff"
+    if (!token) window.location.href="/";
 
-    const dayMap = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    const navLinksContainer = document.getElementById("navLinks");
+    const links = {
+      admin: [
+        { name:"Services", href:"/dashboard" },
+        { name:"Admin Dashboard", href:"/admin" },
+        { name:"Manage Staff", href:"/staff" },
+        { name:"Staff Availability", href:"/availability" },
+        { name:"Profile", href:"/profile" }
+      ],
+      staff: [
+        { name:"Services", href:"/dashboard" },
+        { name:"My Appointments", href:"/appointments" },
+        { name:"Staff Availability", href:"/availability" },
+        { name:"Profile", href:"/profile" }
+      ]
+    };
+    (links[role]||[]).forEach(l=>{
+      const a=document.createElement("a");
+      a.href=l.href; a.innerText=l.name;
+      if(l.href===window.location.pathname) a.classList.add("active");
+      navLinksContainer.appendChild(a);
+    });
+
     const tableBody = document.querySelector("#availabilityTable tbody");
     const daySelect = document.getElementById("dayOfWeek");
     const form = document.getElementById("availabilityForm");
     const formBtn = document.getElementById("formBtn");
     const editIdField = document.getElementById("editId");
+    const searchContainer = document.getElementById("searchContainer");
+    const dayMap = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    let allItems = [];
 
-    document.addEventListener("DOMContentLoaded", loadAvailability);
+    document.addEventListener("DOMContentLoaded", () => {
+      if(role !== "admin" && role !== "staff") { alert("Access Denied."); window.location.href="/dashboard"; return; }
+      if(role==="admin") searchContainer.style.display="block";
+      if(role==="staff") form.style.display="flex";
+      loadAvailability();
+    });
 
     async function loadAvailability() {
-      const res = await fetch("/api/availability", { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      renderTable(data.availability || []);
-      disableUsedDays(data.availability || []);
+      try {
+        const res = await fetch("/api/availability", { headers:{Authorization:`Bearer ${token}`} });
+        const data = await res.json();
+        allItems = data.availability || [];
+        renderTable(allItems);
+        if(role==="staff") disableUsedDays(allItems);
+      } catch(e){ console.error(e); }
     }
 
     function renderTable(items) {
-      tableBody.innerHTML = "";
-      items.forEach(av => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${dayMap[av.dayOfWeek]}</td>
-          <td>${av.startTime}</td>
-          <td>${av.endTime}</td>
-          <td>${av.isActive ? "Active" : "Inactive"}</td>
-          <td>
-            <button class="save-btn" onclick="editAvailability(${av.id}, ${av.dayOfWeek}, '${av.startTime}', '${av.endTime}')">Edit</button>
-            <button class="delete-btn" onclick="deleteAvailability(${av.id})">Delete</button>
-          </td>
-        `;
+      tableBody.innerHTML="";
+      items.forEach(av=>{
+        const tr=document.createElement("tr");
+        if(role==="staff"){
+          tr.innerHTML=`
+            <td>${av.User?.name||"-"}</td>
+            <td>${dayMap[av.dayOfWeek]}</td>
+            <td>${av.startTime}</td>
+            <td>${av.endTime}</td>
+            <td>
+              <button class="save-btn" onclick="editAvailability(${av.id}, ${av.dayOfWeek}, '${av.startTime}','${av.endTime}')">Edit</button>
+              <button class="delete-btn" onclick="deleteAvailability(${av.id})">Delete</button>
+            </td>
+          `;
+        } else {
+          tr.innerHTML=`
+            <td>${av.User?.name||"-"}</td>
+            <td>${dayMap[av.dayOfWeek]}</td>
+            <td>${av.startTime}</td>
+            <td>${av.endTime}</td>
+            <td>${av.isActive?"Active":"Inactive"}</td>
+          `;
+        }
         tableBody.appendChild(tr);
       });
     }
 
-    function disableUsedDays(items) {
-      [...daySelect.options].forEach(opt => opt.disabled = false);
-      const used = items.map(av => av.dayOfWeek.toString());
-      [...daySelect.options].forEach(opt => { if (used.includes(opt.value)) opt.disabled = true; });
+    function filterByName(){
+      const term=document.getElementById("searchInput").value.toLowerCase();
+      renderTable(allItems.filter(av=> (av.User?.name||"").toLowerCase().includes(term)));
     }
 
-    form.addEventListener("submit", async e => {
+    function disableUsedDays(items){
+      [...daySelect.options].forEach(opt=>opt.disabled=false);
+      const used = items.map(av=>av.dayOfWeek.toString());
+      [...daySelect.options].forEach(opt=>{ if(used.includes(opt.value)) opt.disabled=true; });
+    }
+
+    form.addEventListener("submit", async e=>{
       e.preventDefault();
       const payload = {
         dayOfWeek: parseInt(daySelect.value),
         startTime: document.getElementById("startTime").value,
         endTime: document.getElementById("endTime").value
       };
-
       const editId = editIdField.value;
-      if (editId) {
-        const res = await fetch(`/api/availability/${editId}`, {
-          method: "PUT",
-          headers: { "Content-Type":"application/json", Authorization:`Bearer ${token}` },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        alert(data.message);
+      let res;
+      if(editId){
+        res = await fetch(`/api/availability/${editId}`, { method:"PUT", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body:JSON.stringify(payload)});
       } else {
-        const res = await fetch("/api/availability/", {
-          method: "POST",
-          headers: { "Content-Type":"application/json", Authorization:`Bearer ${token}` },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        alert(data.message);
+        res = await fetch("/api/availability/", { method:"POST", headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`}, body:JSON.stringify(payload)});
       }
-
+      const data = await res.json();
+      alert(data.message);
       form.reset();
-      editIdField.value = "";
-      formBtn.textContent = "Add Availability";
-      formBtn.className = "add-btn";
+      editIdField.value="";
+      formBtn.textContent="Add Availability"; formBtn.className="add-btn";
       loadAvailability();
     });
 
-    function editAvailability(id, dayOfWeek, start, end) {
-      editIdField.value = id;
-      daySelect.value = dayOfWeek;
-      document.getElementById("startTime").value = start.slice(0,5);
-      document.getElementById("endTime").value = end.slice(0,5);
-      formBtn.textContent = "Save Changes";
-      formBtn.className = "save-btn";
+    function editAvailability(id, day, start, end){
+      editIdField.value=id;
+      daySelect.value=day;
+      document.getElementById("startTime").value=start.slice(0,5);
+      document.getElementById("endTime").value=end.slice(0,5);
+      formBtn.textContent="Save Changes"; formBtn.className="save-btn";
     }
 
-    async function deleteAvailability(id) {
-      if (!confirm("Are you sure you want to delete this availability?")) return;
-      const res = await fetch(`/api/availability/${id}`, { method:"DELETE", headers:{Authorization:`Bearer ${token}`} });
+    async function deleteAvailability(id){
+      if(!confirm("Delete this availability?")) return;
+      const res = await fetch(`/api/availability/${id}`, { method:"DELETE", headers:{Authorization:`Bearer ${token}`}});
       const data = await res.json();
       alert(data.message);
       loadAvailability();
     }
 
-    function logout() { sessionStorage.clear(); window.location.href="/"; }
+    function logout(){ sessionStorage.clear(); window.location.href="/"; }
   </script>
 </body>
 </html>

@@ -4,81 +4,23 @@
     <meta charset="UTF-8" />
     <title>Assign Service to Staff</title>
     <style>
-      body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        background: #f4f6f9;
-        color: #333;
-      }
-      .navbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        background: #333;
-        padding: 12px 20px;
-      }
-      .navbar a {
-        color: white;
-        margin: 0 12px;
-        text-decoration: none;
-        font-weight: bold;
-        padding: 6px 12px;
-        border-radius: 20px;
-        transition: background 0.3s, color 0.3s;
-      }
-      .navbar a.active {
-        background: white;
-        color: #333;
-      }
-      .navbar button {
-        background: #e74c3c;
-        color: white;
-        border: none;
-        padding: 8px 14px;
-        border-radius: 4px;
-        cursor: pointer;
-      }
-      .navbar button:hover {
-        background: #c0392b;
-      }
+      body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f9; color: #333; }
+      .navbar { display: flex; justify-content: space-between; align-items: center; background: #333; padding: 12px 20px; }
+      .navbar a { color: white; margin: 0 12px; text-decoration: none; font-weight: bold; padding: 6px 12px; border-radius: 20px; transition: 0.3s; }
+      .navbar a.active { background: white; color: #333; }
+      .navbar button { background: #e74c3c; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; }
+      .navbar button:hover { background: #c0392b; }
 
-      main {
-        padding: 20px;
-      }
-      .service-card {
-        background: #fff;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 12px;
-        margin: 10px 0;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-      .btn {
-        background: #3498db;
-        color: white;
-        padding: 6px 12px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-      }
-      .btn:hover {
-        background: #2980b9;
-      }
+      main { padding: 20px; }
+      .service-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin: 10px 0; box-shadow: 0 2px 6px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+      .btn { background: #3498db; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; }
+      .btn:hover { background: #2980b9; }
+      .assigned { color: green; font-weight: bold; }
     </style>
   </head>
   <body>
     <nav class="navbar">
-      <div class="nav-links">
-        <a href="/dashboard">Services</a>
-        <a href="/appointments">My Appointments</a>
-        <a href="/users">Manage Users</a>
-        <a href="/staff">Manage Staff</a>
-        <a href="/availability">Staff availability</a>
-        <a href="/profile">Profile</a>
-      </div>
+      <div class="nav-links" id="navLinks"></div>
       <button onclick="logout()">Logout</button>
     </nav>
 
@@ -89,21 +31,45 @@
 
     <script>
       const token = sessionStorage.getItem("token");
+      const userRole = sessionStorage.getItem("role");
+
       if (!token) window.location.href = "/";
 
+      // Role-based navbar
+      const navLinksContainer = document.getElementById("navLinks");
+      const links = {
+        admin: [
+          { name: "Services", href: "/dashboard" },
+          { name: "Admin Dashboard", href: "/admin" },
+          { name: "Manage Staff", href: "/staff" },
+          { name: "Staff Availability", href: "/availability" },
+          { name: "Profile", href: "/profile" }
+        ],
+        staff: [
+          { name: "Services", href: "/dashboard" },
+          { name: "My Appointments", href: "/appointments" },
+          { name: "Profile", href: "/profile" }
+        ]
+      };
+      (links[userRole] || []).forEach(link => {
+        const a = document.createElement("a");
+        a.href = link.href;
+        a.innerText = link.name;
+        if (link.href === window.location.pathname) a.classList.add("active");
+        navLinksContainer.appendChild(a);
+      });
+
+      // Logout
       function logout() {
         sessionStorage.clear();
         window.location.href = "/";
       }
 
       // Highlight navbar
-      const links = document.querySelectorAll(".navbar a");
-      const currentPath = window.location.pathname;
-      links.forEach((link) => {
-        if (link.getAttribute("href") === currentPath)
-          link.classList.add("active");
+      const navLinks = document.querySelectorAll(".navbar a");
+      navLinks.forEach(link => {
         link.addEventListener("click", () => {
-          links.forEach((l) => l.classList.remove("active"));
+          navLinks.forEach(l => l.classList.remove("active"));
           link.classList.add("active");
         });
       });
@@ -119,19 +85,13 @@
       // Fetch all services + staff assigned services
       async function fetchServices() {
         try {
-          // Fetch all services
-          const res = await fetch("/api/services/", {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const res = await fetch("/api/services/", { headers: { Authorization: `Bearer ${token}` } });
           const servicesData = await res.json();
           const allServices = servicesData.services || [];
 
-          // Fetch staff assigned services
-          const staffRes = await fetch(`/api/staff/${staffId}/services`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const staffRes = await fetch(`/api/staff/${staffId}/services`, { headers: { Authorization: `Bearer ${token}` } });
           const staffData = await staffRes.json();
-          const assignedServices = staffData.services.map((s) => s.id);
+          const assignedServices = staffData.services.map(s => s.id);
 
           renderServices(allServices, assignedServices);
         } catch (err) {
@@ -139,55 +99,41 @@
         }
       }
 
-      // Render services with assign button / already assigned
       function renderServices(services, assignedServices) {
         const list = document.getElementById("serviceList");
         list.innerHTML = "";
 
-        services.forEach((service) => {
+        services.forEach(service => {
           const isAssigned = assignedServices.includes(service.id);
           const card = document.createElement("div");
           card.className = "service-card";
           card.innerHTML = `
-            <div>
-              <strong>${service.name}</strong> - ₹${service.price} / ${service.duration} min
-            </div>
-            <div>
-              ${isAssigned ? '<span style="color:green; font-weight:bold;">Already Assigned</span>' 
-                          : '<button class="btn">Assign</button>'}
-            </div>
+            <div><strong>${service.name}</strong> - ₹${service.price} / ${service.duration} min</div>
+            <div>${isAssigned ? '<span class="assigned">Already Assigned</span>' : '<button class="btn">Assign</button>'}</div>
           `;
           if (!isAssigned) {
-            const btn = card.querySelector("button");
-            btn.onclick = () => assignService(service.id);
+            card.querySelector("button").onclick = () => assignService(service.id);
           }
           list.appendChild(card);
         });
       }
 
-      // Assign service (no overrides)
       async function assignService(serviceId) {
         try {
           const res = await fetch(`/api/staff/${staffId}/services/${serviceId}`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({}),
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({})
           });
           const data = await res.json();
           if (res.ok) {
-            alert(`Service assigned successfully!`);
-            fetchServices(); // refresh list to show "Already Assigned"
+            alert("Service assigned successfully!");
+            fetchServices();
           } else alert(data.message || "Failed to assign service");
-        } catch (err) {
-          console.error("❌ Error assigning service:", err);
-        }
+        } catch (err) { console.error("❌ Error assigning service:", err); }
       }
 
       fetchServices();
     </script>
-
   </body>
 </html>

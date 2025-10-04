@@ -18,23 +18,22 @@
       padding: 12px 20px;
     }
     .navbar a {
-        color: white;
-        margin: 0 12px;
-        text-decoration: none;
-        font-weight: bold;
-        padding: 6px 12px;
-        border-radius: 20px; /* capsule */
-        transition: background 0.3s, color 0.3s;
+      color: white;
+      margin: 0 12px;
+      text-decoration: none;
+      font-weight: bold;
+      padding: 6px 12px;
+      border-radius: 20px;
+      transition: background 0.3s, color 0.3s;
     }
-
     .navbar a:hover {
       text-decoration: none;
       background: rgba(255,255,255,0.2);
     }
-      /* Active (highlighted) link */
     .navbar a.active {
-        background: white;
-        color: #333;
+      background: white;
+      color: #333;
+      transition: background 0.3s, color 0.3s;
     }
     .navbar button {
       background: #e74c3c;
@@ -47,12 +46,9 @@
     .navbar button:hover {
       background: #c0392b;
     }
-
     main {
       padding: 20px;
     }
-
-    /* ===== Service Form ===== */
     #serviceForm {
       display: none;
       margin: 15px 0;
@@ -69,7 +65,6 @@
       border: 1px solid #ccc;
       border-radius: 4px;
     }
-
     .services-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -108,24 +103,14 @@
   </style>
 </head>
 <body>
-  <!-- ✅ Navbar -->
   <nav class="navbar">
-    <div class="nav-links">
-      <a href="/dashboard">Services</a>
-      <a href="/appointments">My Appointments</a>
-      <a href="/users">Manage Users</a>
-      <a href="/staff">Manage Staff</a>
-      <a href="/availability">Staff availability</a>
-      <a href="/profile">Profile</a>
-    </div>
+    <div class="nav-links" id="navLinks"></div>
     <button onclick="logout()">Logout</button>
   </nav>
 
-  <!-- ✅ Dashboard Content -->
   <main>
     <h1>Services</h1>
 
-    <!-- Admin Form -->
     <div id="admin-actions" style="margin:10px 0; display:none;">
       <button class="btn" onclick="toggleForm()">+ Add Service</button>
     </div>
@@ -148,9 +133,49 @@
     const token = sessionStorage.getItem("token");
     const userRole = sessionStorage.getItem("role"); // 'admin', 'user', 'staff'
 
-    if (!token) {
-      // alert("Please login first!");
+    if (!token || !["admin","staff","customer"].includes(userRole)) {
       window.location.href = "/";
+    }
+
+    const navLinksContainer = document.getElementById("navLinks");
+
+    const links = {
+      customer: [
+        { name: "Services", href: "/dashboard" },
+        { name: "My Appointments", href: "/appointments" },
+        { name: "Profile", href: "/profile" }
+      ],
+      staff: [
+        { name: "Services", href: "/dashboard" },
+        { name: "My Appointments", href: "/appointments" },
+        { name: "Staff Availability", href: "/availability" },
+        { name: "Profile", href: "/profile" }
+      ],
+      admin: [
+        { name: "Services", href: "/dashboard" },
+        // { name: "My Appointments", href: "/appointments" },
+        { name: "Admin Dashboard", href: "/admin" },
+        { name: "Manage Staff", href: "/staff" },
+        { name: "Staff Availability", href: "/availability" },
+        { name: "Profile", href: "/profile" }
+      ]
+    };
+
+    function renderNavbar(role) {
+      navLinksContainer.innerHTML = "";
+      (links[role] || []).forEach(link => {
+        const a = document.createElement("a");
+        a.href = link.href;
+        a.innerText = link.name;
+        if (link.href === window.location.pathname) a.classList.add("active");
+        navLinksContainer.appendChild(a);
+      });
+    }
+
+    renderNavbar(userRole);
+
+    if (userRole === "admin") {
+      document.getElementById("admin-actions").style.display = "block";
     }
 
     function logout() {
@@ -158,7 +183,6 @@
       window.location.href = "/";
     }
 
-    // ✅ Fetch services
     async function fetchServices() {
       try {
         const res = await fetch("/api/services/", {
@@ -171,7 +195,6 @@
       }
     }
 
-    // ✅ Render service cards
     function renderServices(services) {
       const list = document.getElementById("servicesList");
       list.innerHTML = "";
@@ -179,7 +202,6 @@
       services.forEach(service => {
         const card = document.createElement("div");
         card.className = "card";
-
         card.innerHTML = `
           <h3>${service.name}</h3>
           <p>${service.description || "No description"}</p>
@@ -190,14 +212,12 @@
 
         const actions = card.querySelector(".actions");
 
-        // 👉 All roles can book
         const bookBtn = document.createElement("button");
         bookBtn.className = "btn";
         bookBtn.innerText = "Book Now";
         bookBtn.onclick = () => bookService(service.id);
         actions.appendChild(bookBtn);
 
-        // 👉 Admin actions
         if (userRole === "admin") {
           const editBtn = document.createElement("button");
           editBtn.className = "btn";
@@ -216,18 +236,14 @@
       });
     }
 
-    // ✅ Show/Hide add form
     function toggleForm() {
       const form = document.getElementById("serviceForm");
       form.reset();
       document.getElementById("serviceId").value = "";
       form.style.display = form.style.display === "block" ? "none" : "block";
     }
-    function cancelForm() {
-      document.getElementById("serviceForm").style.display = "none";
-    }
+    function cancelForm() { document.getElementById("serviceForm").style.display = "none"; }
 
-    // ✅ Load service for editing
     function loadServiceForEdit(service) {
       document.getElementById("serviceId").value = service.id;
       document.getElementById("name").value = service.name;
@@ -238,10 +254,8 @@
       document.getElementById("serviceForm").style.display = "block";
     }
 
-    // ✅ Save service (create or update)
     async function saveService(event) {
       event.preventDefault();
-
       const id = document.getElementById("serviceId").value;
       const payload = {
         name: document.getElementById("name").value,
@@ -250,10 +264,8 @@
         duration: parseInt(document.getElementById("duration").value),
         price: parseFloat(document.getElementById("price").value)
       };
-
       const url = id ? `/api/services/${id}` : "/api/services/";
       const method = id ? "PUT" : "POST";
-
       try {
         await fetch(url, {
           method,
@@ -265,12 +277,9 @@
         });
         cancelForm();
         fetchServices();
-      } catch (err) {
-        console.error("❌ Error saving service:", err);
-      }
+      } catch (err) { console.error("❌ Error saving service:", err); }
     }
 
-    // ✅ Delete service
     async function deleteService(id) {
       if (!confirm("Delete this service?")) return;
       try {
@@ -279,38 +288,15 @@
           headers: { Authorization: `Bearer ${token}` }
         });
         fetchServices();
-      } catch (err) {
-        console.error("❌ Error deleting:", err);
-      }
+      } catch (err) { console.error("❌ Error deleting:", err); }
     }
 
-    // ✅ Book service
     function bookService(id) {
       sessionStorage.setItem("selectedServiceId", id);
       window.location.href = `/service?serviceId=${id}`;
     }
 
-    if (userRole === "admin") {
-      document.getElementById("admin-actions").style.display = "block";
-    }
-
     fetchServices();
-  // ✅ Highlight active navbar link
-    document.addEventListener("DOMContentLoaded", () => {
-      const links = document.querySelectorAll(".navbar a");
-      const currentPath = window.location.pathname;
-
-      links.forEach(link => {
-        if (link.getAttribute("href") === currentPath) {
-          link.classList.add("active");
-        }
-
-        link.addEventListener("click", () => {
-          links.forEach(l => l.classList.remove("active"));
-          link.classList.add("active");
-        });
-      });
-    });    
   </script>
 </body>
 </html>

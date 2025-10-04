@@ -199,3 +199,37 @@ exports.getAppointmentById = async (req, res) => {
     }
 };
 
+/// Get all appointments for a specific staff, ordered by nearest upcoming datetime
+exports.getStaffAppointments = async (req, res) => {
+    try {
+        if (req.user.role !== "staff") {
+            return res.status(403).json({ message: "Access denied. Only staff can view their appointments." });
+        }
+
+        const appointments = await Appointment.findAll({
+            where: { staffId: req.user.id },
+            include: [
+                { model: Service, attributes: ["id", "name", "price", "duration"] },
+                { model: User, as: "Customer", attributes: ["id", "name", "email"] },
+                { model: Payment, attributes: ["id", "amount", "status", "razorpayOrderId", "razorpayPaymentId"] }
+            ]
+        });
+
+        // Sort by nearest upcoming datetime
+        const now = new Date();
+        const sortedAppointments = appointments
+            .map(app => ({
+                ...app.toJSON(),
+                appointmentDateTime: new Date(`${app.date}T${app.startTime}`)
+            }))
+            .sort((a, b) => Math.abs(a.appointmentDateTime - now) - Math.abs(b.appointmentDateTime - now));
+
+        return res.status(200).json({ appointments: sortedAppointments });
+    } catch (err) {
+        console.error("❌ Error fetching staff appointments:", err);
+        return res.status(500).json({ message: "Internal server error", error: err.message });
+    }
+};
+
+
+

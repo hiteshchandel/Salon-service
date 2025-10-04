@@ -4,118 +4,32 @@
   <meta charset="UTF-8">
   <title>User Profile</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background: #f4f6f9;
-      color: #333;
-    }
-
-    /* ===== Navbar ===== */
-    .navbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #333;
-      padding: 12px 20px;
-    }
-    .navbar a {
-      color: white;
-      margin: 0 12px;
-      text-decoration: none;
-      font-weight: bold;
-      padding: 6px 12px;
-      border-radius: 20px;
-      transition: background 0.3s, color 0.3s;
-    }
-    .navbar a:hover {
-      background: rgba(255,255,255,0.2);
-    }
-    .navbar a.active {
-      background: white;
-      color: #333;
-    }
-    .navbar button {
-      background: #e74c3c;
-      color: white;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    /* ===== Profile Card ===== */
-    main {
-      padding: 30px;
-      display: flex;
-      justify-content: center;
-    }
-
-    .profile-card {
-      background: white;
-      border-radius: 12px;
-      padding: 25px;
-      width: 500px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-
-    .profile-card h2 {
-      margin-top: 0;
-      text-align: center;
-      color: #444;
-    }
-
-    .profile-details p {
-      margin: 10px 0;
-      font-size: 16px;
-    }
-
-    .profile-details strong {
-      display: inline-block;
-      width: 120px;
-      color: #555;
-    }
-
-    .actions {
-      text-align: center;
-      margin-top: 20px;
-    }
-
-    .actions button {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      margin: 5px;
-    }
-    .edit-btn { background: #3498db; color: white; }
-    .save-btn { background: #27ae60; color: white; }
-    .cancel-btn { background: #7f8c8d; color: white; }
-
-    input, textarea {
-      width: calc(100% - 130px);
-      padding: 6px;
-      margin: 6px 0;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
+    body { font-family: Arial, sans-serif; margin:0; background:#f4f6f9; color:#333; }
+    .navbar { display:flex; justify-content:space-between; align-items:center; background:#333; padding:12px 20px; }
+    .navbar a { color:white; margin:0 12px; text-decoration:none; font-weight:bold; padding:6px 12px; border-radius:20px; transition:0.3s; }
+    .navbar a:hover { background: rgba(255,255,255,0.2); }
+    .navbar a.active { background:white; color:#333; }
+    .navbar button { background:#e74c3c; color:white; border:none; padding:8px 14px; border-radius:4px; cursor:pointer; }
+    main { padding:30px; display:flex; justify-content:center; }
+    .profile-card { background:white; border-radius:12px; padding:25px; width:500px; box-shadow:0 4px 10px rgba(0,0,0,0.1); }
+    .profile-card h2 { text-align:center; color:#444; margin-top:0; }
+    .profile-details p { margin:10px 0; font-size:16px; }
+    .profile-details strong { display:inline-block; width:120px; color:#555; }
+    .actions { text-align:center; margin-top:20px; }
+    .actions button { padding:10px 20px; border:none; border-radius:6px; cursor:pointer; margin:5px; }
+    .edit-btn { background:#3498db; color:white; }
+    .save-btn { background:#27ae60; color:white; }
+    .cancel-btn { background:#7f8c8d; color:white; }
+    input, textarea { width:calc(100% - 130px); padding:6px; margin:6px 0; border-radius:6px; border:1px solid #ccc; }
   </style>
 </head>
 <body>
-  <!-- ✅ Navbar -->
+  <!-- Navbar -->
   <nav class="navbar">
-    <div class="nav-links">
-      <a href="/dashboard">Services</a>
-      <a href="/appointments">My Appointments</a>
-      <a href="/users">Manage Users</a>
-      <a href="/staff">Manage Staff</a>
-      <a href="/availability">Staff availability</a>
-      <a href="/profile">Profile</a>
-    </div>
+    <div class="nav-links" id="navLinks"></div>
     <button onclick="logout()">Logout</button>
   </nav>
 
-  <!-- ✅ Profile Content -->
   <main>
     <div class="profile-card">
       <h2>User Profile</h2>
@@ -124,7 +38,6 @@
       <form id="editForm" style="display:none;">
         <p><strong>Name:</strong> <input type="text" id="name"></p>
         <p><strong>Email:</strong> <input type="email" id="email"></p>
-        <!-- <p><strong>Mobile:</strong> <input type="text" id="mobile"></p> -->
         <p><strong>Phone:</strong> <input type="text" id="phone"></p>
         <p id="bioField"><strong>Bio:</strong> <textarea id="bio" rows="3"></textarea></p>
         <div class="actions">
@@ -141,126 +54,131 @@
 
   <script>
     const token = sessionStorage.getItem("token");
+    const userRole = sessionStorage.getItem("role"); // user, staff, admin
     let userId;
-    if (!token) {
-      // alert("Please login first!");
-      window.location.href = "/";
+    if(!token) window.location.href="/";
+
+    // Navbar links based on role
+    const links = {
+      customer: [
+        {name:"Services", href:"/dashboard"},
+        {name:"My Appointments", href:"/appointments"},
+        {name:"Profile", href:"/profile"}
+      ],
+      staff: [
+        {name:"Services", href:"/dashboard"},
+        {name:"My Appointments", href:"/appointments"},
+        {name:"Staff Availability", href:"/availability"},
+        {name:"Profile", href:"/profile"}
+      ],
+      admin: [
+        {name:"Services", href:"/dashboard"},
+        // {name:"My Appointments", href:"/appointments"},
+        {name:"Admin Dashboard", href:"/admin"},
+        {name:"Manage Staff", href:"/staff"},
+        {name:"Staff Availability", href:"/availability"},
+        {name:"Profile", href:"/profile"}
+      ]
+    };
+
+    const navLinksContainer = document.getElementById("navLinks");
+    function renderNavbar(role) {
+      navLinksContainer.innerHTML="";
+      (links[role]||[]).forEach(link=>{
+        const a=document.createElement("a");
+        a.href=link.href;
+        a.innerText=link.name;
+        if(link.href===window.location.pathname) a.classList.add("active");
+        navLinksContainer.appendChild(a);
+      });
     }
+    renderNavbar(userRole);
 
     let userData = {};
 
-    // ✅ Fetch profile on load
-    document.addEventListener("DOMContentLoaded", async () => {
+    document.addEventListener("DOMContentLoaded", async ()=>{
       await loadProfile();
     });
 
-    async function loadProfile() {
-      try {
-        const res = await fetch(`/api/users/me`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
+    async function loadProfile(){
+      try{
+        const res = await fetch(`/api/users/me`, { headers:{ Authorization:`Bearer ${token}` } });
         const data = await res.json();
-        if (data.user) {
+        if(data.user){
           userId = data.user.id;
           userData = data.user;
           renderProfile();
-        } else {
-          alert("Error loading profile");
-        }
-      } catch (err) {
-        console.error("Profile fetch error", err);
-      }
+        } else alert("Error loading profile");
+      } catch(err){ console.error(err); }
     }
 
-    function renderProfile() {
-      let html = `
+    function renderProfile(){
+      let html=`
         <p><strong>ID:</strong> ${userData.id}</p>
         <p><strong>Name:</strong> ${userData.name}</p>
         <p><strong>Email:</strong> ${userData.email}</p>
         <p><strong>Role:</strong> ${userData.role}</p>
-        <p><strong>Phone:</strong> ${userData.phone || '-'}</p>
+        <p><strong>Phone:</strong> ${userData.phone||'-'}</p>
       `;
-
-      // ✅ Show Bio & Rating only if role is not customer
-      if (userData.role === "admin" || userData.role === "staff") {
-        html += `
-          <p><strong>Bio:</strong> ${userData.bio || '-'}</p>
-          <p><strong>Rating:</strong> ${userData.avgRating || 0}</p>
+      if(userData.role==="admin" || userData.role==="staff"){
+        html+=`
+          <p><strong>Bio:</strong> ${userData.bio||'-'}</p>
+          <p><strong>Rating:</strong> ${userData.avgRating||0}</p>
         `;
       }
-
-      document.getElementById("profileView").innerHTML = html;
+      document.getElementById("profileView").innerHTML=html;
     }
 
+    function enableEdit(){
+      document.getElementById("editForm").style.display="block";
+      document.getElementById("editBtn").style.display="none";
+      document.getElementById("profileView").style.display="none";
 
-    // ✅ Enable edit mode
-    function enableEdit() {
-      document.getElementById("editForm").style.display = "block";
-      document.getElementById("editBtn").style.display = "none";
-      document.getElementById("profileView").style.display = "none";
+      document.getElementById("name").value = userData.name||"";
+      document.getElementById("email").value = userData.email||"";
+      document.getElementById("phone").value = userData.phone||"";
 
-      // pre-fill form
-      document.getElementById("name").value = userData.name || "";
-      document.getElementById("email").value = userData.email || "";
-      document.getElementById("phone").value = userData.phone || "";
-
-      // ✅ Hide bio field for customers
-      if (userData.role === "admin" || userData.role === "staff") {
-        document.getElementById("bioField").style.display = "block";
-        document.getElementById("bio").value = userData.bio || "";
+      if(userData.role==="admin"||userData.role==="staff"){
+        document.getElementById("bioField").style.display="block";
+        document.getElementById("bio").value = userData.bio||"";
       } else {
-        document.getElementById("bioField").style.display = "none";
+        document.getElementById("bioField").style.display="none";
       }
     }
 
-    // ✅ Cancel edit mode
-    function cancelEdit() {
-      document.getElementById("editForm").style.display = "none";
-      document.getElementById("editBtn").style.display = "block";
-      document.getElementById("profileView").style.display = "block";
+    function cancelEdit(){
+      document.getElementById("editForm").style.display="none";
+      document.getElementById("editBtn").style.display="block";
+      document.getElementById("profileView").style.display="block";
     }
 
-    // ✅ Save profile
-    async function saveProfile() {
-      const updatedData = {
+    async function saveProfile(){
+      const updatedData={
         name: document.getElementById("name").value,
         email: document.getElementById("email").value,
         phone: document.getElementById("phone").value
       };
-
-      // ✅ Add bio only if staff/admin
-      if (userData.role === "admin" || userData.role === "staff") {
+      if(userData.role==="admin"||userData.role==="staff"){
         updatedData.bio = document.getElementById("bio").value;
       }
 
-      try {
+      try{
         const res = await fetch(`/api/users/${userId}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
+          method:"PUT",
+          headers: { "Content-Type":"application/json", "Authorization":`Bearer ${token}` },
           body: JSON.stringify(updatedData)
         });
         const result = await res.json();
-        if (res.ok) {
+        if(res.ok){
           alert("Profile updated successfully!");
           userData = result.user;
           renderProfile();
           cancelEdit();
-        } else {
-          alert(result.message || "Failed to update");
-        }
-      } catch (err) {
-        console.error("Update error", err);
-      }
+        } else alert(result.message||"Failed to update");
+      } catch(err){ console.error(err); }
     }
- 
-    // ✅ Logout
-    function logout() {
-      sessionStorage.removeItem("token");
-      window.location.href = "/";
-    }
+
+    function logout(){ sessionStorage.clear(); window.location.href="/"; }
   </script>
 </body>
 </html>

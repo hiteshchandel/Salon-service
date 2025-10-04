@@ -32,8 +32,8 @@ app.get('/appointments', (req, res) => {
 app.get('/staff', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'staff.html'));
 });
-app.get('/users', (req, res) => {
-    res.sendFile(path.join(__dirname, 'views', 'users.html'));
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
 app.get('/service', (req, res) => {
     res.sendFile(path.join(__dirname, 'views', 'service.html'));

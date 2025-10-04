@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard - Salon</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f9; color: #333; }
+
+    /* Navbar */
+    .navbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #333;
+      padding: 12px 20px;
+    }
+    .navbar a {
+      color: white;
+      margin: 0 12px;
+      text-decoration: none;
+      font-weight: bold;
+      padding: 6px 12px;
+      border-radius: 20px;
+      transition: background 0.3s, color 0.3s;
+    }
+    .navbar a:hover { background: rgba(255,255,255,0.2); }
+    .navbar a.active { background: white; color: #333; }
+    .navbar button { background: #e74c3c; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; }
+    .navbar button:hover { background: #c0392b; }
+
+    /* Tabs */
+    .tabs { display: flex; margin: 20px; border-bottom: 2px solid #ddd; }
+    .tab { padding: 12px 20px; margin-right: 8px; cursor: pointer; border-radius: 6px 6px 0 0; background: #eee; transition: 0.3s; }
+    .tab.active { background: white; border: 2px solid #ddd; border-bottom: none; font-weight: bold; }
+
+    /* Tab content */
+    .tab-content { display: none; background: white; padding: 20px; border: 2px solid #ddd; border-radius: 0 6px 6px 6px; margin: 0 20px 20px 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .tab-content.active { display: block; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    table, th, td { border: 1px solid #ddd; }
+    th, td { padding: 10px; text-align: left; }
+    th { background: #f8f8f8; }
+
+    /* Search Box */
+    .search-box { margin: 10px 0; }
+    .search-box input, .search-box select {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      width: 250px;
+      margin-right: 10px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100px;
+      height: 28px;
+      border-radius: 6px;
+      font-weight: bold;
+      text-transform: capitalize;
+      font-size: 14px;
+    }
+    .status.confirmed { background: #2ecc71; color: white; }
+    .status.pending { background: #f39c12; color: white; }
+    .status.cancelled { background: #e74c3c; color: white; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-links" id="navLinks"></div>
+    <button onclick="logout()">Logout</button>
+  </nav>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="customers">👥 All Customers</div>
+    <div class="tab" data-tab="appointments">📅 All Appointments</div>
+    <div class="tab" data-tab="reports">💰 Revenue / Reports</div>
+  </div>
+
+  <div id="customers" class="tab-content active">
+    <h2>All Customers</h2>
+    <div class="search-box">
+      <input type="text" id="searchUser" placeholder="🔍 Search user by name...">
+      <select id="filterRole">
+        <option value="">All Roles</option>
+        <option value="customer">Customer</option>
+        <option value="staff">Staff</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <table id="customersTable">
+      <thead><tr><th>S.No</th><th>Name</th><th>Email</th><th>Phone</th><th>Role</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="appointments" class="tab-content">
+    <h2>All Appointments</h2>
+    <div class="search-box">
+      <select id="filterStatus">
+        <option value="">All Status</option>
+        <option value="confirmed">Confirmed</option>
+        <option value="pending">Pending</option>
+        <option value="cancelled">Cancelled</option>
+      </select>
+    </div>
+    <table id="appointmentsTable">
+      <thead><tr><th>S.No</th><th>Customer</th><th>Service</th><th>Staff Name</th><th>Date</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="reports" class="tab-content">
+    <h2>Revenue & Reports 💰</h2>
+    <label for="reportFilter">Filter:</label>
+    <select id="reportFilter">
+      <option value="all">All</option>
+      <option value="daily">Daily</option>
+      <option value="weekly">Weekly</option>
+      <option value="monthly">Monthly</option>
+      <option value="yearly">Yearly</option>
+    </select>
+
+    <p>Total Appointments: <span id="totalAppointments">0</span></p>
+    <p>Total Confirmed Appointments: <span id="confirmedAppointments">0</span></p>
+    <p>Total Completed Appointments: <span id="completedAppointments">0</span></p>
+    <p>Total Revenue: ₹<span id="totalRevenue">0</span></p>
+  </div>
+
+  <script>
+    let allUsers = [];
+    let allAppointments = [];
+    const token = sessionStorage.getItem("token");
+    const userRole = sessionStorage.getItem("role");
+
+    // ✅ Role check: only admin allowed
+    if (!token || userRole !== "admin") {
+      alert("Access denied. Admins only.");
+      window.location.href = "/"; // redirect non-admin
+    }
+
+    const navLinksContainer = document.getElementById("navLinks");
+    const links = {
+      admin: [
+        { name: "Services", href: "/dashboard" },
+        { name: "Admin Dashboard", href: "/admin" },
+        { name: "Manage Staff", href: "/staff" },
+        { name: "Staff Availability", href: "/availability" },
+        { name: "Profile", href: "/profile" }
+      ]
+    };
+    // Render Navbar
+    (links[userRole] || []).forEach(link => {
+      const a = document.createElement("a");
+      a.href = link.href;
+      a.innerText = link.name;
+      if (link.href === window.location.pathname) a.classList.add("active");
+      navLinksContainer.appendChild(a);
+    });
+
+    function logout() { sessionStorage.clear(); window.location.href = "/"; }
+
+    // Tabs logic
+    const tabs = document.querySelectorAll(".tab");
+    const contents = document.querySelectorAll(".tab-content");
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => {
+        tabs.forEach(t => t.classList.remove("active"));
+        contents.forEach(c => c.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById(tab.dataset.tab).classList.add("active");
+
+        if(tab.dataset.tab === "customers") loadCustomers();
+        if(tab.dataset.tab === "appointments") loadAppointments();
+        if(tab.dataset.tab === "reports") loadReports(document.getElementById("reportFilter").value);
+      });
+    });
+
+    // Fetch & Render Users
+    async function loadCustomers() {
+      const res = await fetch("/api/admin/users", { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      allUsers = Array.isArray(data) ? data : data.users || [];
+      renderCustomers(allUsers);
+    }
+    function renderCustomers(users) {
+      const tbody = document.querySelector("#customersTable tbody");
+      tbody.innerHTML = "";
+      let num = 1;
+      users.forEach(u => {
+        tbody.innerHTML += `<tr>
+          <td>${num++}</td>
+          <td>${u.name || "-"}</td>
+          <td>${u.email || "-"}</td>
+          <td>${u.phone || "-"}</td>
+          <td>${u.role || "-"}</td>
+        </tr>`;
+      });
+    }
+
+    // Filter/Search Users
+    document.getElementById("searchUser").addEventListener("input", () => filterUsers());
+    document.getElementById("filterRole").addEventListener("change", () => filterUsers());
+    function filterUsers() {
+      const keyword = document.getElementById("searchUser").value.toLowerCase();
+      const roleFilter = document.getElementById("filterRole").value;
+      const filtered = allUsers.filter(u => 
+        (u.name || "").toLowerCase().includes(keyword) &&
+        (roleFilter === "" || u.role === roleFilter)
+      );
+      renderCustomers(filtered);
+    }
+
+    // Fetch & Render Appointments
+    async function loadAppointments() {
+      const res = await fetch("/api/admin/appointments", { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      allAppointments = Array.isArray(data) ? data : data.appointments || [];
+      renderAppointments(allAppointments);
+    }
+    function renderAppointments(apps) {
+      const tbody = document.querySelector("#appointmentsTable tbody");
+      tbody.innerHTML = "";
+      let num = 1;
+      apps.forEach(a => {
+        tbody.innerHTML += `<tr>
+          <td>${num++}</td>
+          <td>${a.Customer?.name || "-"}</td>
+          <td>${a.Service?.name || "-"}</td>
+          <td>${a.Staff?.name || "-"}</td>
+          <td>${a.date || "-"}</td>
+          <td><span class="status ${a.status}">${a.status}</span></td>
+        </tr>`;
+      });
+    }
+    document.getElementById("filterStatus").addEventListener("change", e => {
+      const statusFilter = e.target.value;
+      const filtered = allAppointments.filter(a => statusFilter === "" || a.status === statusFilter);
+      renderAppointments(filtered);
+    });
+
+    // Reports
+    async function loadReports(filter = "all") {
+      const res = await fetch(`/api/admin/revenue?filter=${filter}`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      document.getElementById("totalAppointments").textContent = data.totalAppointments || 0;
+      document.getElementById("confirmedAppointments").textContent = data.totalConfirmedAppointments || 0;
+      document.getElementById("completedAppointments").textContent = data.totalCompletedAppointments || 0;
+      document.getElementById("totalRevenue").textContent = data.totalRevenue || 0;
+    }
+    document.getElementById("reportFilter").addEventListener("change", e => loadReports(e.target.value));
+
+    // Load default tab data
+    loadCustomers();
+  </script>
+</body>
+</html>
